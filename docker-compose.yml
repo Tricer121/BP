@@ -1,0 +1,21 @@
+version: "3.4"
+services:
+  api:
+    image: fitmap/api
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    ports:
+      - "7040:80"
+
+  frontend:
+    image: fitmap/frontend
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api

@@ -1,0 +1,174 @@
+<template>
+  <v-container id="listBody" class="align-center" style="height: 100%">
+    <v-row>
+      <v-col class="d-flex justify-center">
+        <div v-if="ready == false && store.stravaEmpty == false" class="d-flex flex-column align-center" style="min-height:120px;margin-top:30px">
+          <p>Aktivity se momentálně načítají. Stránka se obnoví, jakmile budou připraveny.</p>
+          <v-spacer/>
+          <v-progress-circular
+              :size="60"
+              indeterminate
+              color="deep-orange"
+            />
+        </div>
+        <div v-else-if="store.stravaEmpty == true" class="d-flex flex-column align-center" style="min-height:120px;margin-top:30px">
+          <p>Aplikace neobsahuje žádné aktivity. Zvažte reset účtu</p>
+        </div>
+        <v-expansion-panels class="" v-else style="width: 65%">
+          <v-expansion-panel
+            v-for="(item,index) in activities[currentPage - 1]"
+            :key="index"
+            class="space-out"
+            :id="item.id"
+            @click="scroll(item.id)"
+          >
+            <v-expansion-panel-title expand-icon="mdi-menu-down">
+              <v-container class="d-flex flex-row justify-center align-center">
+                <v-row>
+                  <v-col class="align-center">
+                    <span style="text-h5">{{ item.name }}</span>
+                  </v-col>
+                  <v-col>
+                    <span style="text-h5">{{ item.startDate }}</span>
+                  </v-col>
+                <v-col class="justify-end text-right">
+                  <v-btn 
+                  @click.native.stop 
+                  @click="deleteDialogFc(item.id)"
+                  style="width:10px;"
+                  :disabled="store.fullyLoaded == false"
+                  > 
+                    <v-icon>mdi-delete-circle</v-icon>
+                    <v-tooltip
+                      activator="parent"
+                      anchor="bottom">
+                        Smazat aktivitu
+                    </v-tooltip>
+                  </v-btn>
+                </v-col>
+                </v-row>
+              </v-container>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <ActivityVue :id="item.id" :map="true" />
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+      </v-col>
+    </v-row>
+    <v-row>
+      <v-col class="d-flex flex-row justify-center">
+        <v-pagination
+          v-if="activityBar"
+          v-model="currentPage"
+          :length="activityPages"
+          show-first-last-page
+        ></v-pagination>
+        <div style="width:10px;margin-left:30px" v-if="ready">
+          <v-select
+            :items="perPageOptions"
+            v-model="activityPerPage"
+            outlined
+            dense
+          ></v-select>
+          <v-tooltip 
+              activator="parent"
+              anchor="bottom">
+              Množství aktivit na stránce
+          </v-tooltip>
+        </div>
+      </v-col>
+    </v-row>
+    <v-dialog v-model="deleteDialog" >
+        <DeleteDialog :id="activeId" @close="()=>{deleteDialog = false;request()}"/>
+    </v-dialog>
+  </v-container>
+</template>
+
+<script lang="ts" setup>
+import type Activity from "@/models/activity";
+import ActivityList from "@/models/activityList";
+import UserService from "@/services/UserService";
+import ActivityVue from "@/components/activity.vue";
+import DeleteDialog from '@/components/deleteDialog.vue';
+
+import { useMainStore } from "@/store/mainstore";
+import { computed, ref, watch} from "vue";
+
+const store = useMainStore();
+const ready = ref(false);
+const activityPerPage = ref(5);
+const currentPage = ref(1);
+const perPageOptions = [2,3,4,5,6,7,10,15,20,50];
+const activityPages = ref(1);
+const deleteDialog = ref(false);
+const activeId = ref(-1);
+const activities = ref<Activity[][]>();
+const activityBar = computed(() => {
+  return activityPages.value > 1 ? true : false
+});
+
+request();
+let myInterval = setInterval(request, 5000);
+function scroll(id:number){
+  setTimeout(function(){
+    let element = document.getElementById(`${id}`)
+    element?.scrollIntoView({behavior:"smooth"})
+  },350)
+}
+watch(()=>activityPerPage.value,(newValue)=>{
+  request()
+})
+function request(){ UserService.getActivities(activityPerPage.value)
+  .then((x) => {
+    clearInterval(myInterval);
+    activities.value = [];
+    if(x.data.length == 0){
+        store.stravaEmpty = true;
+        return;
+    }
+    store.stravaEmpty = false;
+    let activity: ActivityList = new ActivityList(
+      x.data.pages,
+      x.data.perPage,
+      x.data.activities
+    );
+    var colorArray = 
+    ['#ff4900','#5303ff','#B33300','#ffd503','#030bff',
+    '#9aff03','#03a7ff','#53ff03','#03ff74','#e61010',
+    '#03ffc0','#03fffb','#0346ff',
+    '#8103ff','#c803ff','#ff03dd','#ff0374'];
+
+    if(currentPage.value > activity.pages)
+      currentPage.value = activity.pages
+    activityPages.value = activity.pages;
+    
+    activities.value = activity.activities;
+    activities.value.forEach(
+      x=>x.forEach(
+        function (y,index){
+          store.addColor({id:y.id,color:colorArray[index%colorArray.length]})
+        }
+    ));
+    ready.value = true;
+    
+  })
+  .catch(function () {
+    store.requestFailed = true;
+    clearInterval(myInterval);
+    myInterval = setInterval(request, 10000);
+  });
+}
+
+function deleteDialogFc(id:number){
+  activeId.value = id;
+  deleteDialog.value = true;
+}
+
+</script>
+
+<style scoped>
+.space-out {
+  margin: 10px 0;
+}
+</style>
