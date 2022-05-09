@@ -2,7 +2,7 @@
 <v-container id="listBody2" class="align-center" style="height: 100%">
   <v-row>
     <v-col v-if="ready == false" class="d-flex justify-center">
-      <LoadingComponent :progress="processedActivities" />
+      <LoadingComponent :progress="processedActivities" :indeterminate="false" />
     </v-col>
     <v-col cols="0" md="1"  class="d-flex justify-end">
       <div v-if="ready == true && store.stravaEmpty == false" >
@@ -128,16 +128,21 @@ function refresh(){
     zoom.value = store.mapZoom;
   }, 1);
 }
-function reload(centered:boolean, coordinates:boolean){
+function reload(centered:boolean | undefined, coordinates:boolean){
   if(coordinateHighlight.value != coordinates)
     coordinateHighlight.value = coordinates;
   else
-    request(centered)
+    if(centered != undefined)
+      request(centered)
+    else
+      request(false)
 }
 
 function request(centered: Boolean){ 
-  if(store.fullyLoadedRequestID != 0)
-    clearInterval(store.fullyLoadedRequestID)
+  if(store.fullyLoadedRequestID != 0){
+    window.clearInterval(store.fullyLoadedRequestID)
+    store.fullyLoadedRequestID = 0;
+  }
   UserService.getCenteredActivites(centered).then(result=>{
     if(result.status == 202){
       store.fullyLoaded = false;
@@ -146,16 +151,27 @@ function request(centered: Boolean){
     }
     activities.value = []
     clearInterval(myInterval);
-    store.fullyLoaded = true;
-    if(result.data.routes.length == 0){
+    
+    if(result.data.length == 0){
         store.stravaEmpty = true;
-        store.ready = false;
+        ready.value = false;
         return;
     }
+    store.fullyLoaded = true;
     store.stravaEmpty = false;
     result.data.routes.forEach(x=>activities.value.push(new ActivityProcessed(x.id,x.name,x.rawRoute,x.startDate)))
     regions.value = result.data.regions;
-    
+    var colorArray = 
+    ['#ff4900','#5303ff','#B33300','#ffd503','#030bff',
+    '#9aff03','#03a7ff','#53ff03','#03ff74','#e61010',
+    '#03ffc0','#03fffb','#0346ff',
+    '#8103ff','#c803ff','#ff03dd','#ff0374'];
+    activities.value.forEach(
+      function (x,index){
+        if(!store.colorExists(x.id))
+            store.addColor({id:x.id,color:colorArray[index%colorArray.length]})
+        }
+    );
     if(store.mapCenter[0] == 0){
       center.value = activities.value[0].rawRoute.coordinates[
             Math.round(activities.value[0].rawRoute.coordinates.length / 2)
@@ -172,7 +188,9 @@ function request(centered: Boolean){
 }).catch(function (err) {
     store.requestFailed = true;
     clearInterval(myInterval);
-    myInterval = setInterval(request, 10000);
+    myInterval = setInterval(function(){
+      request(false)
+    }, 10000);
   })
 }
 window.onresize = function()

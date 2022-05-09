@@ -25,15 +25,13 @@
               <v-list-item>
                 <v-btn variant="outlined" color="error" @click="resetAccPrompt=true"
                 :disabled="!store.fullyLoaded">
-                          Resetovat účet
-                          
+                          Resetovat účet  
                       </v-btn>
               </v-list-item>
               <v-spacer/>
               <v-list-item>
-                <v-btn variant="outlined" color="error" @click="deleteAccPrompt=true"
-                :disabled="!store.fullyLoaded">
-                          Smazat účet
+                <v-btn variant="outlined" color="error" @click="deleteAccPrompt=true">
+                  Smazat účet
                 </v-btn>
               </v-list-item>
             </v-list>
@@ -87,7 +85,7 @@
   <v-dialog v-model="signOutPrompt"
     transition="dialog-bottom-transition"
     min-height="100px"
-    
+    :persistent="inProgress"
   >
     <v-card>
       <v-toolbar color="#3b444b">Doopravdy se chcete odhlásit? </v-toolbar>
@@ -113,7 +111,7 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
-  <v-dialog v-model="deleteAccPrompt" style="padding: 30px;">
+  <v-dialog v-model="deleteAccPrompt" :persistent="inProgress" style="padding: 30px;">
     <v-card
     title="Potvrdit smazání"
     subtitle="Doopravdy chcete smazat svůj účet?"
@@ -140,7 +138,7 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
-  <v-dialog v-model="resetAccPrompt" >
+  <v-dialog v-model="resetAccPrompt" :persistent="inProgress">
     <v-card 
     style="margin: 30px;"
     title="Potvrdit reset účtu"
@@ -228,9 +226,15 @@ function resetAccount(){
       resetAccPrompt.value = false;
       store.stravaEmpty = false;
       inProgress.value = false;
+      console.log(store.fullyLoadedRequestID)
+      if(store.fullyLoadedRequestID != 0){
+        window.clearInterval(store.fullyLoadedRequestID)
+        store.fullyLoadedRequestID = 0;
+      }
       store.fullyLoaded = false;
       setTimeout(function(){
         router.push("/");
+        router.go(0);
       }, 300);
     }).catch(()=>{store.requestFailed=true;});
 }

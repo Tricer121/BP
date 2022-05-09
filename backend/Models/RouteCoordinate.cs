@@ -24,15 +24,15 @@ public class RouteCoordinate
     //https://www.movable-type.co.uk/scripts/latlong.html
     public double GetDistanceTo(RouteCoordinate other)
     {
-        var R = 6371e3;
-        var num1 = Latitude * (Math.PI / 180.0);
-        var num2 = other.Latitude * (Math.PI / 180.0);
-        var d1 = (Latitude-other.Latitude) * (Math.PI / 180.0);
-        var d2 = (Longitude-other.Longitude) * (Math.PI / 180.0);
-        var a = Math.Sin(d1 / 2) * Math.Sin(d1 / 2) +
-                Math.Cos(num1) * Math.Cos(num2) *
-                Math.Sin(d2 / 2) * Math.Sin(d2 / 2);
-        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        double R = 6371e3;
+        double num1 = Latitude * (Math.PI / 180.0);
+        double num2 = other.Latitude * (Math.PI / 180.0);
+        double d1 = (Latitude-other.Latitude) * (Math.PI / 180.0);
+        double d2 = (Longitude-other.Longitude) * (Math.PI / 180.0);
+        double a = Math.Sin(d1 / 2) * Math.Sin(d1 / 2) +
+                   Math.Cos(num1) * Math.Cos(num2) *
+                   Math.Sin(d2 / 2) * Math.Sin(d2 / 2);
+        double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
         return R * c;
     }
 }

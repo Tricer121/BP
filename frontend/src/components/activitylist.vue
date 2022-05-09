@@ -1,20 +1,13 @@
 <template>
   <v-container id="listBody" class="align-center" style="height: 100%">
     <v-row>
-      <v-col class="d-flex justify-center">
-        <div v-if="ready == false && store.stravaEmpty == false" class="d-flex flex-column align-center" style="min-height:120px;margin-top:30px">
-          <p>Aktivity se momentálně načítají. Stránka se obnoví, jakmile budou připraveny.</p>
-          <v-spacer/>
-          <v-progress-circular
-              :size="60"
-              indeterminate
-              color="deep-orange"
-            />
-        </div>
-        <div v-else-if="store.stravaEmpty == true" class="d-flex flex-column align-center" style="min-height:120px;margin-top:30px">
-          <p>Aplikace neobsahuje žádné aktivity. Zvažte reset účtu</p>
-        </div>
-        <v-expansion-panels class="" v-else style="width: 65%">
+        <v-col v-if="ready == false" class="d-flex justify-center">
+          <LoadingComponent :indeterminate="true" />
+        </v-col> 
+    </v-row>
+    <v-row>
+        <v-col class="d-flex justify-center">
+        <v-expansion-panels v-if="ready" style="width: 75%">
           <v-expansion-panel
             v-for="(item,index) in activities[currentPage - 1]"
             :key="index"
@@ -64,7 +57,7 @@
           :length="activityPages"
           show-first-last-page
         ></v-pagination>
-        <div style="width:10px;margin-left:30px" v-if="ready">
+        <div v-if="ready" style="width:10px;margin-left:30px">
           <v-select
             :items="perPageOptions"
             v-model="activityPerPage"
@@ -80,7 +73,7 @@
       </v-col>
     </v-row>
     <v-dialog v-model="deleteDialog" >
-        <DeleteDialog :id="activeId" @close="()=>{deleteDialog = false;request()}"/>
+        <DeleteDialog :id="activeId" @close="deleteDialog = false"/>
     </v-dialog>
   </v-container>
 </template>
@@ -91,6 +84,7 @@ import ActivityList from "@/models/activityList";
 import UserService from "@/services/UserService";
 import ActivityVue from "@/components/activity.vue";
 import DeleteDialog from '@/components/deleteDialog.vue';
+import LoadingComponent from '@/components/loading.vue';
 
 import { useMainStore } from "@/store/mainstore";
 import { computed, ref, watch} from "vue";
@@ -125,6 +119,7 @@ function request(){ UserService.getActivities(activityPerPage.value)
     activities.value = [];
     if(x.data.length == 0){
         store.stravaEmpty = true;
+        ready.value = false;
         return;
     }
     store.stravaEmpty = false;
@@ -133,21 +128,24 @@ function request(){ UserService.getActivities(activityPerPage.value)
       x.data.perPage,
       x.data.activities
     );
+    
+
+    if(currentPage.value > activity.pages)
+      currentPage.value = activity.pages
+    activityPages.value = activity.pages;
+
+    activities.value = activity.activities;
+
     var colorArray = 
     ['#ff4900','#5303ff','#B33300','#ffd503','#030bff',
     '#9aff03','#03a7ff','#53ff03','#03ff74','#e61010',
     '#03ffc0','#03fffb','#0346ff',
     '#8103ff','#c803ff','#ff03dd','#ff0374'];
-
-    if(currentPage.value > activity.pages)
-      currentPage.value = activity.pages
-    activityPages.value = activity.pages;
-    
-    activities.value = activity.activities;
     activities.value.forEach(
       x=>x.forEach(
         function (y,index){
-          store.addColor({id:y.id,color:colorArray[index%colorArray.length]})
+          if(!store.colorExists(y.id))
+            store.addColor({id:y.id,color:colorArray[index%colorArray.length]})
         }
     ));
     ready.value = true;
@@ -156,7 +154,9 @@ function request(){ UserService.getActivities(activityPerPage.value)
   .catch(function () {
     store.requestFailed = true;
     clearInterval(myInterval);
-    myInterval = setInterval(request, 10000);
+    myInterval = setInterval(function(){
+      request()
+    }, 10000);
   });
 }
 

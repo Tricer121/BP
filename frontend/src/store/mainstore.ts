@@ -26,6 +26,13 @@ export const useMainStore = defineStore("mainStore", {
     };
   },
   actions:{
+    colorExists(id:number){
+      if(this.IdAndColors.some(x=>x.id == id)){
+        return true;
+      }
+      else 
+        return false;
+    },
     addColor(object: IdColor){
       this.IdAndColors.push(object);
     },

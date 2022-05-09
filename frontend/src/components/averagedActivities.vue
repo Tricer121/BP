@@ -2,7 +2,7 @@
 <v-container class="align-center" style="height: 100%">
   <v-row>
     <v-col v-if="ready == false" class="d-flex justify-center">
-      <LoadingComponent :progress="processedActivities" />
+      <LoadingComponent :progress="processedActivities" :indeterminate="false" />
     </v-col>
     <v-col cols="0" md="1" class="d-flex justify-end">
       <div v-if="ready == true && store.stravaEmpty == false" >
@@ -93,7 +93,7 @@ let myInterval = setInterval(request, 5000);
 function request(){ 
   UserService.getAveragedActivites().then(result=>{
     if(result.status == 202){
-      processedActivities.value = result.data;
+      processedActivities.value = parseInt(result.data);
       store.fullyLoaded = false;
       return;
     }
@@ -101,11 +101,22 @@ function request(){
     clearInterval(myInterval);
     if(result.data.length == 0){
         store.stravaEmpty = true;
-        store.ready = false;
+        ready.value = false;
         return;
     }
     store.stravaEmpty = false;
     result.data.forEach(x=>activities.value.push(new ActivityProcessed(x.id,x.name,x.rawRoute,x.startDate)))
+    var colorArray = 
+    ['#ff4900','#5303ff','#B33300','#ffd503','#030bff',
+    '#9aff03','#03a7ff','#53ff03','#03ff74','#e61010',
+    '#03ffc0','#03fffb','#0346ff',
+    '#8103ff','#c803ff','#ff03dd','#ff0374'];
+    activities.value.forEach(
+      function (x,index){
+        if(!store.colorExists(x.id))
+            store.addColor({id:x.id,color:colorArray[index%colorArray.length]})
+        }
+    );
     ready.value = true;
     center.value = store.mapCenter;
     if(store.mapCenter[0] == 0)
@@ -118,7 +129,9 @@ function request(){
 .catch(function (err) {
     store.requestFailed = true;
     clearInterval(myInterval);
-    myInterval = setInterval(request, 10000);
+    myInterval = setInterval(function(){
+      request()
+    }, 10000);
   })}
 
 window.onresize = function()

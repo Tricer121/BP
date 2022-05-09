@@ -188,8 +188,8 @@ public class ProcessActivityClass
             }
         }
         double shortestDistance = lookDistance;
-        var element0 = coordRaw["elements"][0];
-        var closestCoord = new RouteCoordinate(Convert.ToDouble(element0["lat"]), Convert.ToDouble(element0["lon"]), true);
+        var element0 = coordRaw["elements"]![0];
+        var closestCoord = new RouteCoordinate(Convert.ToDouble(element0!["lat"]), Convert.ToDouble(element0["lon"]), true);
         foreach (var element in ((JArray)coordRaw["elements"]!)!)
         {
             var centeredCoord = new RouteCoordinate(Convert.ToDouble(element["lat"]),

@@ -49,14 +49,16 @@ import { useMainStore } from "@/store/mainstore";
 const store = useMainStore();
 import UserService from '@/services/UserService.ts'
 import {watch} from 'vue';
-watch(()=>store.isLoggedIn, newValue => {
-  if(newValue == true){
+watch(()=>store.fullyLoaded, (newValue) => {
+  if(newValue == false){
     isFullyLoadedRequest()
-    store.fullyLoadedRequestID = setInterval(isFullyLoadedRequest, 10000);
+    store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
   }
 })
-
-
+if(!store.fullyLoaded){
+    isFullyLoadedRequest()
+    store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
+}
 function isFullyLoadedRequest(){
   UserService.getCenteredActivites(false).then(result=>{
     if(result.status == 202){
@@ -72,6 +74,7 @@ function isFullyLoadedRequest(){
       }
     }
   })
+  .catch(_=>{})
 }
 </script>
 

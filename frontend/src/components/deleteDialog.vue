@@ -40,7 +40,6 @@ function deleteById(){
     UserService.deleteActivityById(props.id).then(()=>{
         store.successMessage = "Aktivita smazána";
         store.requestSuccess = true;
-        inProgress.value = false
         emit('close');
         setTimeout(function(){
             router.go(0);

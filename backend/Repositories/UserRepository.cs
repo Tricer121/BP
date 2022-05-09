@@ -174,7 +174,10 @@ public class UserRepository : BaseRepository
         var user = GetLoggedInUser(dbContext, context);
         if (user is null)
             return Results.NotFound();
+        
         var model = new List<List<UserActivityBasic>>();
+        if (user.Activities.Count(x=>x.ActivityStatus != ActivityStatus.ToBeDeleted) == 0)
+            return Results.Ok(model);
         var pages = (int)Math.Ceiling((double)user.Activities.Count / perPage);
         for (var index = 0; index < user.Activities.Count; index += perPage)
         {
@@ -233,11 +236,13 @@ public class UserRepository : BaseRepository
         var user = GetLoggedInUser(dbContext, context);
         if (user is null)
             return Results.NotFound();
+        var activityModel = new List<UserActivityProcessed>();
+        if (user.Activities.Count(x=>x.ActivityStatus != ActivityStatus.ToBeDeleted) == 0)
+            return Results.Ok(activityModel);
         var averagedCount = user.Activities.Count(x => x.ActivityStatus >= ActivityStatus.FullyAveraged);
         var toBeDeleted = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted);
         var completePercent = Convert.ToInt32(Math.Round((double)averagedCount / (user.Activities.Count), 2)*100);
         if (averagedCount != user.Activities.Count-toBeDeleted) return Results.Accepted(null, $"{completePercent}");
-        var activityModel = new List<UserActivityProcessed>();
         foreach (var activity in user.Activities!)
         {
             if (activity.ActivityStatus == ActivityStatus.ToBeDeleted)
@@ -254,11 +259,13 @@ public class UserRepository : BaseRepository
         var user = GetLoggedInUser(dbContext, context);
         if (user is null)
             return Results.NotFound();
+        var activityModel = new List<UserActivityProcessed>();
+        if (user.Activities.Count(x=>x.ActivityStatus != ActivityStatus.ToBeDeleted) == 0)
+            return Results.Ok(activityModel);
         var centeredCount = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Centered);
         var completePercent = Convert.ToInt32(Math.Round((double)centeredCount / user.Activities.Count, 2) * 100);
         var toBeDeleted = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted);
         if (centeredCount != user.Activities.Count-toBeDeleted) return Results.Accepted(null, $"{completePercent}");
-        var activityModel = new List<UserActivityProcessed>();
         var result = new List<List<List<double[]>>>();
         var regionIds = new List<long>();
         foreach (var activity in user.Activities!)
