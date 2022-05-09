@@ -7,7 +7,7 @@ services:
       context: .
       dockerfile: ./backend/Dockerfile
     ports:
-      - "7040:80"
+      - "7040:7040"
 
   frontend:
     image: fitmap/frontend

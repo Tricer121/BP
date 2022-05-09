@@ -208,6 +208,12 @@ public class ProcessActivityClass
 
     private async Task<UserRoute> CenterRoute(List<RouteCoordinate?> route, string url, HttpClient httpClient)
     {
+        var pos = 0;
+
+        //Remove every other coordinate
+        for (var i = 0; i < route.Count; i += 2, pos++) route[pos] = route[i];
+
+        route.RemoveRange(pos, route.Count - pos);
         var centeredRoute = new List<RouteCoordinate>();
         var batchSize = 20;
         var numberOfBatches = (int)Math.Ceiling((double)route.Count / batchSize);

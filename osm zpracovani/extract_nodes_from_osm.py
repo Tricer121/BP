@@ -5,7 +5,7 @@ import os
 filePath = sys.argv[1].removesuffix(".osm")+"copy.txt"
 
 originalFile = open(sys.argv[1], "r", encoding="utf8")
-file = open(os.getcwd() + "\\osmnodes.txt", "w+",encoding="utf8")
+file = open(os.getcwd() + "\\"+ os.path.splitext(originalFile.name)[0]+"_nodes.txt", "w+",encoding="utf8")
 
 array = []
 for line in originalFile:

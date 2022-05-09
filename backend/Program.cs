@@ -75,6 +75,8 @@ app.UseRouting();
 app.UseCors("AllowLocalhost");
 app.UseAuthentication();
 app.UseAuthorization();
+
+
 app.MapPost("/api/register", AuthRepository.Register)
     .AllowAnonymous();
 
@@ -113,4 +115,4 @@ app.MapPost("/user/loadnewactivities", UserRepository.LoadNewActivities)
 
 app.MapPost("/user/reset", UserRepository.ResetAccount)
     .RequireAuthorization();
-app.Run("http://localhost:7040");
+app.Run();

@@ -1,9 +1,9 @@
 from scipy.spatial import Voronoi
 import sys
-
+import os
 originalFile = open(sys.argv[1], "r", encoding="utf8")
 
-voronoiPath = "./voronoiregions.txt"
+voronoiPath = "./"+os.path.splitext(originalFile.name)[0]+"_regions.txt"
 voronoiFile = open(voronoiPath, "w", encoding="utf8")
 
 inputPoints = []
