@@ -1,21 +1,21 @@
 <template>
   <v-app fill-height>
     <v-snackbar
-      v-if="errorHappened == true"
       multi-line
-      v-model="errorHappened"
-      :timeout="9000"
+      v-model="store.requestFailed"
+      :timeout="5000"
       tile
       color="red accent-2"
       top
       vertical
     >
-      <div v-if="store.requestFailed">
-      Nastala chyba připojení při zpracování požadavku. <br> Opakuji za 10 vteřin.
-      </div>
-      <div v-else>
+      <div v-if="store.error401">
       Nastala chyba přihlášení. <br> Je nutné se znovu přihlásit.
       </div>
+      <div v-else>
+      Nastala chyba připojení při zpracování požadavku. <br> Opakuji za 10 vteřin.
+      </div>
+      
       <template v-slot:actions>
         <v-btn
           color="black"
@@ -55,7 +55,11 @@ const store = useMainStore();
 import UserService from '@/services/UserService.ts'
 import {watch, computed} from 'vue';
 import router from "@/router";
-
+watch(() => store.requestFailed.value,(newValue,oldValue)=>{
+    if(newValue == false && oldValue == true){
+        store.error401 = false;
+    }
+})
 watch(()=>store.fullyLoaded, (newValue) => {
   if(newValue == false){
     isFullyLoadedRequest()
@@ -90,7 +94,6 @@ function isFullyLoadedRequest(){
     store.requestFailed=true;
   })
 }
-const errorHappened = computed(()=>{return store.error401 || store.requestFailed})
 </script>
 
 <style>
