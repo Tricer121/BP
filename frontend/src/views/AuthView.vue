@@ -31,29 +31,42 @@ if (error != undefined) {
   if(authFailed.value == false)
     UserService.register(code, scope)
       .then(() => {
-        UserService.loadNewActsFromStrava().then((result)=>{
+        UserService.loadNewActsFromStrava()
+        .then((result)=>{
           store.isLoggedIn = true;
           UserService.getLoggedInUser()
-            .then((x) => {
-              store.userName = x.data.name;
-              isLoading.value = false;
-              router.replace("/");
-            })
-            .catch(function (err) {
-              store.requestFailed = true;
-            });
-          });
-      })
-      .catch(function (err) {
-        if(err.response)
-          if(err.response.status == 401){
-            store.error401 = true;
+          .then((x) => {
+            store.userName = x.data.name;
+            isLoading.value = false;
+            router.replace("/");
+          })
+          .catch(function (err) {
+            if(err.response)
+              if(err.response.status == 401){
+                store.error401 = true;
+                store.requestFailed = true;
+                setTimeout( function() {
+                    document.cookie = 'auth_cookie=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+                    store.$reset(); router.push('/');router.go(0)
+                }, 3500);
+                return;
+              }
             store.requestFailed = true;
-            setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 3000);
-            return;
-          }
-        store.requestFailed = true;
-      });
+          });
+        }).catch(function (err) {
+            if(err.response)
+              if(err.response.status == 401){
+                store.error401 = true;
+                store.requestFailed = true;
+                setTimeout( function() {
+                    document.cookie = 'auth_cookie=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+                    store.$reset(); router.push('/');router.go(0)
+                }, 3500);
+                return;
+              }
+            store.requestFailed = true;
+          });;
+      })
 }
 </script>
 

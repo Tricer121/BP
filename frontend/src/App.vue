@@ -68,8 +68,10 @@ watch(()=>store.fullyLoaded, (newValue) => {
 })
 watch(()=>store.isLoggedIn, (newValue) => {
   if(newValue == true){    
-    isFullyLoadedRequest()
-    store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
+    setTimeout( function() {
+      isFullyLoadedRequest()
+      store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
+    }, 3000);
   }
 })
 if(!store.fullyLoaded && store.isLoggedIn){
@@ -91,16 +93,7 @@ function isFullyLoadedRequest(){
       }
     }
   })
-  .catch(function (err) {
-    if(err.response)
-      if(err.response.status == 401){
-        store.error401 = true;
-        store.requestFailed = true;
-        setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 5000);
-        return;
-      }
-    store.requestFailed=true;
-  })
+  .catch(_=>{})
 }
 </script>
 

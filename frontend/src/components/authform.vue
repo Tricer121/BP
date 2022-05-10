@@ -48,13 +48,6 @@ function request(){
       window.location.assign(response.data) 
       clearInterval(interval.value)})
     .catch(function (err) {
-      if(err.response)
-        if(err.response.status == 401){
-          store.error401 = true;
-          store.requestFailed = true;
-          setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 3000);
-          return;
-        }
       store.requestFailed = true;
       requestMade.value = false;
     });

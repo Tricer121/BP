@@ -201,7 +201,8 @@ function signOut() {
       store.$reset()
     })
     .catch(function (err) {
-      
+      document.cookie = 'auth_cookie=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+      store.$reset()
     });
 }
 function deleteAccount(){
@@ -216,11 +217,13 @@ function deleteAccount(){
         router.push("/auth");
       }, 10);
     }).catch(function(err){
-      if(err.response.status == 401){
-      store.error401 = true;
-      setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
-      return;
-    }
+      if(err.response)
+        if(err.response.status == 401){
+          store.error401 = true;
+          store.requestFailed = true;
+          setTimeout( function() {signOut()}, 1500);
+          return;
+        }
       });
 }
 function resetAccount(){
@@ -243,11 +246,16 @@ function resetAccount(){
         router.go(0);
       }, 300);
     }).catch(function (err){
-      if(err.response.status == 401){
-      store.error401 = true;
-      setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
-      return;
-      }
+      if(err.response)
+        if(err.response.status == 401){
+          store.error401 = true;
+          store.requestFailed = true;
+          setTimeout( function() {
+              document.cookie = 'auth_cookie=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+              store.$reset(); router.push('/');router.go(0)
+          }, 3500);
+          return;
+        }
       store.request});
 }
 function loadNewActivities(){
@@ -263,7 +271,7 @@ function loadNewActivities(){
       if(err.response.status == 401){
         store.error401 = true;
         store.requestFailed = true;
-        setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 3000);
+        setTimeout( function() {signOut()}, 3000);
         return;
       }
       store.requestFailed=true;

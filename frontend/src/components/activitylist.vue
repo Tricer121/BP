@@ -102,8 +102,9 @@ const activities = ref<Activity[][]>();
 const activityBar = computed(() => {
   return activityPages.value > 1 ? true : false
 });
-
-request();
+setTimeout( function() {
+  request();
+}, 500);
 let myInterval = setInterval(request, 5000);
 function scroll(id:number){
   setTimeout(function(){
@@ -154,12 +155,15 @@ function request(){ UserService.getActivities(activityPerPage.value)
   })
   .catch(function (err) {
     if(err.response)
-      if(err.response.status == 401){
-            store.error401 = true;
-            store.requestFailed = true;
-            setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 3000);
-            return;
-      }
+        if(err.response.status == 401){
+          store.error401 = true;
+          store.requestFailed = true;
+          setTimeout( function() {
+              document.cookie = 'auth_cookie=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+              store.$reset(); router.push('/');router.go(0)
+          }, 3500);
+          return;
+        }
     store.requestFailed = true;
     clearInterval(myInterval);
     myInterval = setInterval(function(){
