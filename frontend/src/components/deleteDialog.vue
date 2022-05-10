@@ -43,7 +43,7 @@ function deleteById(){
         emit('close');
         setTimeout(function(){
             router.go(0);
-        }, 300);
+        }, 5000);
     }).catch(function (err){
       if(err.response)
         if(err.response.status == 401){

@@ -88,9 +88,11 @@ const processedActivities = ref(0);
 const refreshNow = ref(true); 
 
 const activities = ref<ActivityProcessed[]>([]);
-request();
-let myInterval = setInterval(request, 5000);
-
+if(store.averagedRequest == 0)
+  request();
+store.averagedRequest = window.setInterval(request, 5000);
+if(store.centeredRequest !=0)
+  window.clearInterval(store.centeredRequest);
 function request(){ 
   UserService.getAveragedActivites().then(result=>{
     if(result.status == 202){
@@ -99,7 +101,8 @@ function request(){
       return;
     }
     activities.value = []
-    clearInterval(myInterval);
+    clearInterval(store.averagedRequest);
+    store.averagedRequest = 0;
     if(result.data.length == 0){
         store.stravaEmpty = true;
         ready.value = false;
@@ -115,7 +118,7 @@ function request(){
     activities.value.forEach(
       function (x,index){
         if(!store.colorExists(x.id))
-            store.addColor({id:x.id,color:colorArray[index%colorArray.length]})
+            store.addColor({id:x.id,color:colorArray[Math.floor(Math.random()*colorArray.length)]})
         }
     );
     ready.value = true;
@@ -140,8 +143,8 @@ function request(){
       }
 
     store.requestFailed = true;
-    clearInterval(myInterval);
-    myInterval = setInterval(function(){
+    clearInterval(store.averagedRequest);
+    store.averagedRequest = setInterval(function(){
       request()
     }, 10000);
   })}

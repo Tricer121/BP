@@ -7,5 +7,6 @@ public enum ActivityStatus
     ToBeDeleted,
     Averaged,
     FullyAveraged,
-    Centered
+    Centered,
+    Finished,
 }

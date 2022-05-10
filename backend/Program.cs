@@ -107,6 +107,9 @@ app.MapGet("/user/centeredactivities", UserRepository.GetCenteredActivities)
 app.MapPost("/user/loadallactivities", UserRepository.LoadActivities)
     .RequireAuthorization();
 
+app.MapGet("/user/isloaded", UserRepository.IsLoaded)
+    .RequireAuthorization();
+
 app.MapDelete("/user/account", UserRepository.DeleteAccount)
     .RequireAuthorization();
 
@@ -115,4 +118,4 @@ app.MapPost("/user/loadnewactivities", UserRepository.LoadNewActivities)
 
 app.MapPost("/user/reset", UserRepository.ResetAccount)
     .RequireAuthorization();
-app.Run();
+app.Run("http://localhost:7040");

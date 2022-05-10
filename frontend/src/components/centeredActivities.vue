@@ -116,11 +116,10 @@ function centerOnId(id:number){
   }
   zoom.value = store.mapZoom
 }
+if(store.centeredRequest == 0)
+  request(false);
+store.centeredRequest = window.setInterval(function(){request(false)}, 5000);
 
-request(false);
-let myInterval = setInterval(function(){
-  request(false)
-  }, 5000);
 function refresh(){
   refreshNow.value = false;
   setTimeout(function(){
@@ -138,13 +137,15 @@ function reload(centered:boolean | undefined, coordinates:boolean){
     else
       request(false)
 }
+  var colorArray = 
+    ['#ff4900','#5303ff','#B33300','#ffd503','#030bff',
+    '#9aff03','#03a7ff','#53ff03','#03ff74','#e61010',
+    '#03ffc0','#03fffb','#0346ff',
+    '#8103ff','#c803ff','#ff03dd','#ff0374'];
 
+if(store.averagedRequest !=0)
+  window.clearInterval(store.averagedRequest);
 function request(centered: Boolean){ 
-  if(store.fullyLoadedRequestID != 0){
-    window.clearInterval(store.fullyLoadedRequestID)
-    store.fullyLoadedRequestID = 0;
-  }
-
   UserService.getCenteredActivites(centered).then(result=>{
     if(result.status == 202){
       store.fullyLoaded = false;
@@ -152,26 +153,21 @@ function request(centered: Boolean){
       return;
     }
     activities.value = []
-    clearInterval(myInterval);
-    
+    window.clearInterval(store.centeredRequest);
+    store.centeredRequest = 0;
     if(result.data.length == 0){
         store.stravaEmpty = true;
         ready.value = false;
         return;
     }
-    store.fullyLoaded = true;
     store.stravaEmpty = false;
     result.data.routes.forEach(x=>activities.value.push(new ActivityProcessed(x.id,x.name,x.rawRoute,x.startDate)))
     regions.value = result.data.regions;
-    var colorArray = 
-    ['#ff4900','#5303ff','#B33300','#ffd503','#030bff',
-    '#9aff03','#03a7ff','#53ff03','#03ff74','#e61010',
-    '#03ffc0','#03fffb','#0346ff',
-    '#8103ff','#c803ff','#ff03dd','#ff0374'];
+  
     activities.value.forEach(
       function (x,index){
         if(!store.colorExists(x.id))
-            store.addColor({id:x.id,color:colorArray[index%colorArray.length]})
+            store.addColor({id:x.id,color:colorArray[Math.floor(Math.random()*colorArray.length)]})
         }
     );
     if(store.mapCenter[0] == 0){
@@ -199,8 +195,8 @@ function request(centered: Boolean){
         return;
       }
     store.requestFailed = true;
-    clearInterval(myInterval);
-    myInterval = setInterval(function(){
+    window.clearInterval(store.centeredRequest);
+    store.centeredRequest = window.setInterval(function(){
       request(false)
     }, 10000);
   })

@@ -51,5 +51,8 @@ class UserService {
   resetUserAccount(){
     return http.post(`/user/reset`);
   }
+  isLoaded(){
+    return http.get(`/user/isloaded`);
+  }
 }
 export default new UserService();

@@ -79,12 +79,8 @@ if(!store.fullyLoaded && store.isLoggedIn){
     store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
 }
 function isFullyLoadedRequest(){
-  UserService.getCenteredActivites(false).then(result=>{
-    if(result.status == 202){
-      store.fullyLoaded = false;
-      return;
-    }
-    else{
+  UserService.isLoaded().then(result=>{
+    if(result.data == true){
       clearInterval(store.fullyLoadedRequestID);
       store.fullyLoaded = true;
       if(result.data.routes.length == 0){

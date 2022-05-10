@@ -8,6 +8,8 @@ export const useMainStore = defineStore("mainStore", {
       requestFailed: false,
       requestSuccess: false,
       error401: false,
+      averagedRequest: 0,
+      centeredRequest: 0,
       successMessage: "",
       errorMessage: "",
       userName: "",

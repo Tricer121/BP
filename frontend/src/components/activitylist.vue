@@ -102,6 +102,10 @@ const activities = ref<Activity[][]>();
 const activityBar = computed(() => {
   return activityPages.value > 1 ? true : false
 });
+if(store.centeredRequest !=0)
+  window.clearInterval(store.centeredRequest);
+if(store.averagedRequest !=0)
+  window.clearInterval(store.averagedRequest);
 setTimeout( function() {
   request();
 }, 500);

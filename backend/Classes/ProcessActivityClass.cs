@@ -50,40 +50,44 @@ public class ProcessActivityClass
                         if (activityHelp is null)
                             continue;
                         activityHelp.ActivityStatus = ActivityStatus.Recalculate;
+                        
                     }
-
-                    
                     await dbContext.SaveChangesAsync();
+                    var routes = new List<UserRoute> { activity.RawRoute!, activity.CenteredRoute!, activity.AveragedRoute! };
+                    var routeCordsToRemove = new List<RouteCoordinate>();
+                    routeCordsToRemove.AddRange(activity.RawRoute!.RouteCoordinates);
+                    routeCordsToRemove.AddRange(activity.AveragedRoute!.RouteCoordinates);
+                    routeCordsToRemove.AddRange(activity.CenteredRoute!.RouteCoordinates);
+
+                    dbContext.UserActivities.Remove(activity);
+                    dbContext.UserRoutes.RemoveRange(routes);
+                    dbContext.RouteCoordinates.RemoveRange(routeCordsToRemove);
+            
+                    await dbContext.SaveChangesAsync();
+
                     foreach (var activityHelpId in activityGroup.ActivityIds)
                     {
-                        var activityHelp = dbContext.UserActivities.FirstOrDefault(x =>
-                            x.Id == activityHelpId.ActivityId && x.ActivityStatus != ActivityStatus.ToBeDeleted);
+                        var activityHelp =
+                            dbContext.UserActivities.FirstOrDefault(x => x.Id == activityHelpId.ActivityId);
                         if (activityHelp is null)
                             continue;
                         var helpRoutes = new List<UserRoute> { activityHelp.AveragedRoute! };
                         var helpRouteCordsToRemove = new List<RouteCoordinate>();
-                        helpRouteCordsToRemove.AddRange(activity.AveragedRoute!.RouteCoordinates);
+                        helpRouteCordsToRemove.AddRange(activityHelp.AveragedRoute!.RouteCoordinates);
                         dbContext.UserRoutes.RemoveRange(helpRoutes);
                         dbContext.RouteCoordinates.RemoveRange(helpRouteCordsToRemove);
-                        dbContext.CoordinateIndexes.RemoveRange(
-                            helpRouteCordsToRemove.SelectMany(x => x.CoordinateIndexes));
                         await dbContext.SaveChangesAsync();
-                        await RunAveraging(activityHelpId.ActivityId, user.Id, true);
+                        activityHelp.AveragedRoute = AverageRoute(activityHelp.RawRoute!.RouteCoordinates);
+                        activityHelp.ActivityStatus = ActivityStatus.Averaged;
+                        await dbContext.SaveChangesAsync();
+                        AverageAllRoutes(user, activityHelp);
+                        if (activityHelp.ActivityStatus == ActivityStatus.ToBeDeleted)
+                            return;
+                        activityHelp.ActivityStatus = ActivityStatus.Finished;
+                        await dbContext.SaveChangesAsync();
                     }
                 }
             }
-
-            var routes = new List<UserRoute> { activity.RawRoute!, activity.CenteredRoute!, activity.AveragedRoute! };
-            var routeCordsToRemove = new List<RouteCoordinate>();
-            routeCordsToRemove.AddRange(activity.RawRoute!.RouteCoordinates);
-            routeCordsToRemove.AddRange(activity.AveragedRoute!.RouteCoordinates);
-            routeCordsToRemove.AddRange(activity.CenteredRoute!.RouteCoordinates);
-
-            dbContext.UserActivities.Remove(activity);
-            dbContext.UserRoutes.RemoveRange(routes);
-            dbContext.RouteCoordinates.RemoveRange(routeCordsToRemove);
-            
-            await dbContext.SaveChangesAsync();
         }
     }
 
@@ -97,15 +101,16 @@ public class ProcessActivityClass
             if (user is null)
                 return;
             dbContext.Users.Remove(user);
+            var activities = user.Activities.ToList();
             user.ActivitiesCloseBy.Clear();
             await dbContext.SaveChangesAsync();
-            foreach (var activity in user.Activities) await RunDeleteActivity(activity.Id, true);
+            foreach (var activity in activities) await RunDeleteActivity(activity.Id, true);
            
             await dbContext.SaveChangesAsync();
         }
     }
 
-    public async Task RunAveraging(long activityId, long userId, bool recalculating)
+    public async Task RunAveragingAll(long userId)
     {
         using (var scope = _serviceProvider.CreateScope())
         using (var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>())
@@ -113,25 +118,22 @@ public class ProcessActivityClass
             var user = dbContext.Users.FirstOrDefault(x => x.Id == userId);
             if (user is null)
                 return;
-            var activity = user.Activities.FirstOrDefault(x => x.Id == activityId);
-            if (activity is null || activity.ActivityStatus == ActivityStatus.Centered)
-                return;
-            if (activity.ActivityStatus == ActivityStatus.ToBeDeleted)
-                return;
-
-            activity.AveragedRoute = AverageRoute(activity.RawRoute!.RouteCoordinates);
-
-            activity.ActivityStatus = ActivityStatus.Averaged;
-            await dbContext.SaveChangesAsync();
-
-            AverageAllRoutes(user, activity);
-            if (activity.ActivityStatus == ActivityStatus.ToBeDeleted)
-                return;
-            if (recalculating)
-                activity.ActivityStatus = ActivityStatus.Centered;
-            else
-                activity.ActivityStatus = ActivityStatus.FullyAveraged;
-            await dbContext.SaveChangesAsync();
+            var onlyAveraged = user.Activities.Count(x => x.ActivityStatus is ActivityStatus.Centered or ActivityStatus.Finished);
+            var toBeDeleted = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted);
+            if (onlyAveraged + toBeDeleted == user.Activities.Count)
+            {
+                foreach (var activity in user.Activities)
+                {
+                    if (activity.ActivityStatus is ActivityStatus.Finished or ActivityStatus.FullyAveraged or ActivityStatus.ToBeDeleted)
+                        continue;
+                    AverageAllRoutes(user, activity);
+                    if (activity.ActivityStatus == ActivityStatus.ToBeDeleted)
+                        return;
+                    if ( activity.ActivityStatus == ActivityStatus.Centered)
+                        activity.ActivityStatus = ActivityStatus.Finished;
+                    await dbContext.SaveChangesAsync();
+                }
+            }
         }
     }
 
@@ -145,18 +147,26 @@ public class ProcessActivityClass
             if (user is null)
                 return;
             var activity = user.Activities.FirstOrDefault(x => x.Id == activityId);
-            if (activity is null || activity.ActivityStatus is ActivityStatus.Centered or ActivityStatus.ToBeDeleted)
+            if (activity is null)
                 return;
-            await RunAveraging(activityId, userId, false);
+            if (activity.ActivityStatus == ActivityStatus.ToBeDeleted)
+                return;
+            activity.AveragedRoute = AverageRoute(activity.RawRoute!.RouteCoordinates);
+            activity.ActivityStatus = ActivityStatus.Averaged;
+            await dbContext.SaveChangesAsync();
 
-            
             activity.CenteredRoute = await CenterRoute(activity.RawRoute!.RouteCoordinates.ToList()!, url!, httpClient);
             AssignRegions(dbContext, user, activity);
 
             if (activity.ActivityStatus == ActivityStatus.ToBeDeleted)
                 return;
-            activity.ActivityStatus = ActivityStatus.Centered;
+            if (activity.ActivityStatus == ActivityStatus.FullyAveraged)
+                activity.ActivityStatus = ActivityStatus.Finished;
+            else activity.ActivityStatus = ActivityStatus.Centered;
             await dbContext.SaveChangesAsync();
+            
+            
+            
         }
     }
 
@@ -262,25 +272,42 @@ public class ProcessActivityClass
             bool influenced = false;
             if (activity.ActivityStatus >= ActivityStatus.Averaged)
                 influenced = AverageTwoRoutes(activity.AveragedRoute!, activityToAverage.AveragedRoute!);
-            if (influenced && closeBy1 is null && closeBy2 is null)
+            if (influenced)
             {
-                user.ActivitiesCloseBy.Add(new UserActivitiesCloseBy(new List<long>
-                    { activity.Id, activityToAverage.Id }));
+                if (closeBy1 is null)
+                {
+                    if(closeBy2 is null)
+                        user.ActivitiesCloseBy.Add(new UserActivitiesCloseBy(new List<long>
+                                        { activity.Id, activityToAverage.Id }));
+                    else
+                    {
+                        if(closeBy2.ActivityIds.All(x => x.ActivityId != activity.Id))
+                            closeBy2.ActivityIds.Add(new UserActivityCloseBy(activity.Id));
+                    }
+                }
+                else
+                {
+                    if (closeBy2 is null)
+                    {
+                        if (closeBy1.ActivityIds.All(x => x.ActivityId != activityToAverage.Id))
+                            closeBy1.ActivityIds.Add(new UserActivityCloseBy(activityToAverage.Id));
+                    }
+                    else
+                    {
+                        if (closeBy1.Id != closeBy2.Id)
+                        {
+                            foreach (var id in closeBy2.ActivityIds)
+                            {
+                                if(closeBy1.ActivityIds.All(x => x.ActivityId != id.ActivityId))
+                                    closeBy1.ActivityIds.Add(new UserActivityCloseBy(id.ActivityId));
+                            }
+                            user.ActivitiesCloseBy.Remove(closeBy2);
+                        }
+                    }
+                        
+                }
             }
-            else if (influenced && closeBy1 != null && closeBy2 is null)
-            {
-                closeBy1.ActivityIds.Add(new UserActivityCloseBy(activityToAverage.Id));
-            }
-            else if (influenced && closeBy1 is null && closeBy2 != null)
-            {
-                closeBy2.ActivityIds.Add(new UserActivityCloseBy(activityToAverage.Id));
-            }
-            else if (influenced && closeBy2 != null && closeBy1 != null)
-            {
-                closeBy1.ActivityIds.AddRange(closeBy2.ActivityIds.Select(x=>new UserActivityCloseBy(x.ActivityId)).ToList());
-                user.ActivitiesCloseBy.Remove(closeBy2);
-            }
-            else if (!influenced)
+            else
             {
                 if (closeBy1 is null)
                     user.ActivitiesCloseBy.Add(new UserActivitiesCloseBy(new List<long> { activity.Id }));

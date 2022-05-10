@@ -29,20 +29,33 @@ public class UserRepository : BaseRepository
 
     public static async Task<IResult> ResetAccount(AppDbContext dbContext, HttpClient httpClient,
         HttpContext context,
-        IConfiguration config, IBackgroundJobClient backgroundJobs, IServiceProvider serviceProvider)
+        IConfiguration config, IBackgroundJobClient backgroundJobs, IRecurringJobManager recurringJobManager, IServiceProvider serviceProvider)
     {
         var user = await AuthRepository.GetUserRefreshTokens(dbContext, httpClient, context, config);
         if (user is null)
             return Results.NotFound();
 
-        await LoadActivities(dbContext, httpClient, context, config, backgroundJobs, serviceProvider);
+        await LoadActivities(dbContext, httpClient, context, config, backgroundJobs, serviceProvider,recurringJobManager);
         user.LastUpdated = DateTime.Now;
         return Results.Ok();
     }
 
+    public static IResult IsLoaded(AppDbContext dbContext,HttpContext context, IRecurringJobManager recurringJobManager)
+    {
+        var user = GetLoggedInUser(dbContext, context);
+        if (user is null)
+            return Results.NotFound();
+        if (user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Finished) == (user.Activities.Count -
+                user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted)))
+        {
+            recurringJobManager.RemoveIfExists("averageall");
+            return Results.Ok(true);
+        }
+        return Results.Ok(false);
+    }
     public static async Task<IResult> LoadNewActivities(AppDbContext dbContext, HttpClient httpClient,
         HttpContext context,
-        IConfiguration config, IBackgroundJobClient backgroundJobs, IServiceProvider serviceProvider)
+        IConfiguration config, IBackgroundJobClient backgroundJobs, IServiceProvider serviceProvider, IRecurringJobManager recurringJobManager)
     {
         var user = await AuthRepository.GetUserRefreshTokens(dbContext, httpClient, context, config);
         if (user is null)
@@ -88,13 +101,14 @@ public class UserRepository : BaseRepository
                 backgroundJobs.Enqueue(() => 
                     new ProcessActivityClass(serviceProvider, config).RunProcessing(userActivity.Id, user.Id, httpClient));
         }
+        recurringJobManager.AddOrUpdate("averageall",() => new ProcessActivityClass(serviceProvider,config).RunAveragingAll(user.Id),"0/30 * * * * ?");
         user.LastUpdated = DateTime.Now;
         await dbContext.SaveChangesAsync();
         return Results.Ok(newActs);
     }
 
     public static async Task<IResult> LoadActivities(AppDbContext dbContext, HttpClient httpClient, HttpContext context,
-        IConfiguration config, IBackgroundJobClient backgroundJobs, IServiceProvider serviceProvider)
+        IConfiguration config, IBackgroundJobClient backgroundJobs, IServiceProvider serviceProvider, IRecurringJobManager recurringJobManager)
     {
         var user = await AuthRepository.GetUserRefreshTokens(dbContext, httpClient, context, config);
         if (user is null)
@@ -125,7 +139,8 @@ public class UserRepository : BaseRepository
                     new ProcessActivityClass(serviceProvider, config).RunProcessing(userActivity.Id, user.Id, httpClient));
         }
         user.LastUpdated = DateTime.Now;
- 
+        recurringJobManager.AddOrUpdate("averageall",() => new ProcessActivityClass(serviceProvider,config).RunAveragingAll(user.Id),"0/30 * * * * ?");
+
 
         await dbContext.SaveChangesAsync();
         return Results.Ok();
@@ -231,7 +246,7 @@ public class UserRepository : BaseRepository
     }
 
 
-    public static IResult GetAveragedActivities(AppDbContext dbContext, HttpContext context)
+    public static IResult GetAveragedActivities(AppDbContext dbContext, HttpContext context, IRecurringJobManager recurringJobManager)
     {
         var user = GetLoggedInUser(dbContext, context);
         if (user is null)
@@ -239,9 +254,13 @@ public class UserRepository : BaseRepository
         var activityModel = new List<UserActivityProcessed>();
         if (user.Activities.Count(x=>x.ActivityStatus != ActivityStatus.ToBeDeleted) == 0)
             return Results.Ok(activityModel);
-        var averagedCount = user.Activities.Count(x => x.ActivityStatus >= ActivityStatus.FullyAveraged);
+        var averagedCount = user.Activities.Count(x => x.ActivityStatus is ActivityStatus.FullyAveraged or ActivityStatus.Finished);
+        var normalAveraged = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Averaged);
+        var centered = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Centered)*2;
+        
         var toBeDeleted = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted);
-        var completePercent = Convert.ToInt32(Math.Round((double)averagedCount / (user.Activities.Count), 2)*100);
+        var count = averagedCount*3+centered*2+normalAveraged-toBeDeleted*3;
+        var completePercent = Convert.ToInt32(Math.Round((double)(count) / (user.Activities.Count+count), 2)*100);
         if (averagedCount != user.Activities.Count-toBeDeleted) return Results.Accepted(null, $"{completePercent}");
         foreach (var activity in user.Activities!)
         {
@@ -254,7 +273,7 @@ public class UserRepository : BaseRepository
         return Results.Ok(activityModel);
     }
 
-    public static IResult GetCenteredActivities(AppDbContext dbContext, HttpContext context, [FromQuery] bool centered)
+    public static IResult GetCenteredActivities(AppDbContext dbContext, HttpContext context,IRecurringJobManager recurringJobManager, [FromQuery] bool centered)
     {
         var user = GetLoggedInUser(dbContext, context);
         if (user is null)
@@ -262,9 +281,11 @@ public class UserRepository : BaseRepository
         var activityModel = new List<UserActivityProcessed>();
         if (user.Activities.Count(x=>x.ActivityStatus != ActivityStatus.ToBeDeleted) == 0)
             return Results.Ok(activityModel);
-        var centeredCount = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Centered);
-        var completePercent = Convert.ToInt32(Math.Round((double)centeredCount / user.Activities.Count, 2) * 100);
+        var centeredCount = user.Activities.Count(x => x.ActivityStatus >= ActivityStatus.Centered);
+        var justAveraged = user.Activities.Count(x => x.ActivityStatus >= ActivityStatus.Averaged); 
         var toBeDeleted = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted);
+        var completePercent = Convert.ToInt32(Math.Round((double)(centeredCount+justAveraged-toBeDeleted) / (user.Activities.Count+justAveraged-toBeDeleted), 2) * 100);
+       
         if (centeredCount != user.Activities.Count-toBeDeleted) return Results.Accepted(null, $"{completePercent}");
         var result = new List<List<List<double[]>>>();
         var regionIds = new List<long>();
