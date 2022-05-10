@@ -208,11 +208,6 @@ function deleteAccount(){
     inProgress.value = true;
     UserService.deleteUserAccount()
     .then((result)=>{
-      if(result.status == 401){
-          store.error401 = true;
-          setTimeout( function() {store.$reset()}, 1500);
-          return;
-      }
       store.requestSuccess = true;
       store.successMessage = "Účet byl smazán."
       deleteAccPrompt.value = false;
@@ -221,18 +216,17 @@ function deleteAccount(){
         router.push("/auth");
       }, 10);
     }).catch(function(err){
-      store.requestFailed=true;
+      if(err.response.status == 401){
+      store.error401 = true;
+      setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
+      return;
+    }
       });
 }
 function resetAccount(){
     inProgress.value = true;
     UserService.resetUserAccount()
     .then((result)=>{
-      if(result.status == 401){
-        store.error401 = true;
-        setTimeout( function() {store.$reset()}, 1500);
-        return;
-      }
       store.requestSuccess = true;
       store.successMessage = "Účet byl resetován. Aktivity budou znovu přepočítany."
       resetAccPrompt.value = false;
@@ -249,15 +243,15 @@ function resetAccount(){
         router.go(0);
       }, 300);
     }).catch(function (err){
+      if(err.response.status == 401){
+      store.error401 = true;
+      setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
+      return;
+      }
       store.request});
 }
 function loadNewActivities(){
   UserService.loadNewActsFromStrava().then(x=>{
-    if(x.status == 401){
-      store.error401 = true;
-      setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
-      return;
-    }
     store.successMessage = `Nalezeno ${x.data} nových aktivit`;
     store.requestSuccess = true;
     if(x.data > 0){
@@ -265,6 +259,13 @@ function loadNewActivities(){
     }
     router.go(0);
   }).catch(function (err){
+    if(err.response)
+      if(err.response.status == 401){
+        store.error401 = true;
+        store.requestFailed = true;
+        setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 3000);
+        return;
+      }
       store.requestFailed=true;
     });
 }

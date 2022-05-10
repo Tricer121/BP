@@ -2,10 +2,8 @@ import { defineStore } from "pinia";
 import type Activity from "@/models/activity";
 
 export const useMainStore = defineStore("mainStore", {
-  // arrow function recommended for full type inference
   state: () => {
     return {
-      // all these properties will have their type inferred automatically
       isLoggedIn: false,
       requestFailed: false,
       requestSuccess: false,

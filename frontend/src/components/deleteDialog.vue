@@ -38,11 +38,6 @@ const inProgress = ref(false)
 function deleteById(){
     inProgress.value = true;
     UserService.deleteActivityById(props.id).then((result)=>{
-        if(result.status == 401){
-          store.error401 = true;
-          setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
-          return;
-        }
         store.successMessage = "Aktivita smazána";
         store.requestSuccess = true;
         emit('close');
@@ -50,7 +45,13 @@ function deleteById(){
             router.go(0);
         }, 300);
     }).catch(function (err){
-
+      if(err.response)
+        if(err.response.status == 401){
+          store.error401 = true;
+          store.requestFailed = true;
+          setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
+          return;
+        }
       store.requestFailed=true;});
 }
 </script>

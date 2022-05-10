@@ -61,12 +61,18 @@ watch(() => store.requestFailed.value,(newValue,oldValue)=>{
     }
 })
 watch(()=>store.fullyLoaded, (newValue) => {
-  if(newValue == false){
+  if(newValue == false){    
     isFullyLoadedRequest()
     store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
   }
 })
-if(!store.fullyLoaded){
+watch(()=>store.isLoggedIn, (newValue) => {
+  if(newValue == true){    
+    isFullyLoadedRequest()
+    store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
+  }
+})
+if(!store.fullyLoaded && store.isLoggedIn){
     isFullyLoadedRequest()
     store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
 }
@@ -74,11 +80,6 @@ function isFullyLoadedRequest(){
   UserService.getCenteredActivites(false).then(result=>{
     if(result.status == 202){
       store.fullyLoaded = false;
-      return;
-    }
-    if(result.status == 401){
-      store.error401 = true;
-      setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
       return;
     }
     else{
@@ -91,6 +92,13 @@ function isFullyLoadedRequest(){
     }
   })
   .catch(function (err) {
+    if(err.response)
+      if(err.response.status == 401){
+        store.error401 = true;
+        store.requestFailed = true;
+        setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 5000);
+        return;
+      }
     store.requestFailed=true;
   })
 }

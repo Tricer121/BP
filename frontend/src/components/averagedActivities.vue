@@ -98,11 +98,6 @@ function request(){
       store.fullyLoaded = false;
       return;
     }
-    if(result.status == 401){
-      store.error401 = true;
-      setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
-      return;
-    }
     activities.value = []
     clearInterval(myInterval);
     if(result.data.length == 0){
@@ -133,6 +128,14 @@ function request(){
     
 })
 .catch(function (err) {
+    if(err.response)
+      if(err.response.status == 401){
+        store.error401 = true;
+        store.requestFailed = true;
+        setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 3000);
+        return;
+      }
+
     store.requestFailed = true;
     clearInterval(myInterval);
     myInterval = setInterval(function(){

@@ -89,11 +89,6 @@ onBeforeMount(() => {
   if (props.id != undefined) {
     UserService.getActivity(props.id)
       .then((x) => {
-        if(x.status == 401){
-          store.error401 = true;
-          setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
-          return;
-        }
         activity.value = new ActivityDetailed(
           x.data.name,
           x.data.id,
@@ -113,6 +108,13 @@ onBeforeMount(() => {
         mapContainer.value = true;
       })
       .catch(function (err) { 
+        if(err.response)
+          if(err.response.status == 401){
+            store.error401 = true;
+            store.requestFailed = true;
+            setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 3000);
+            return;
+          }
         store.requestFailed = true;
       });
   }
