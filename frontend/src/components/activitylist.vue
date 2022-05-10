@@ -85,6 +85,7 @@ import UserService from "@/services/UserService";
 import ActivityVue from "@/components/activity.vue";
 import DeleteDialog from '@/components/deleteDialog.vue';
 import LoadingComponent from '@/components/loading.vue';
+import router from "@/router";
 
 import { useMainStore } from "@/store/mainstore";
 import { computed, ref, watch} from "vue";
@@ -115,6 +116,11 @@ watch(()=>activityPerPage.value,(newValue)=>{
 })
 function request(){ UserService.getActivities(activityPerPage.value)
   .then((x) => {
+    if(x.status == 401){
+        store.error401 = true;
+        setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
+        return;
+    }
     clearInterval(myInterval);
     activities.value = [];
     if(x.data.length == 0){
@@ -151,7 +157,7 @@ function request(){ UserService.getActivities(activityPerPage.value)
     ready.value = true;
     
   })
-  .catch(function () {
+  .catch(function (err) {
     store.requestFailed = true;
     clearInterval(myInterval);
     myInterval = setInterval(function(){

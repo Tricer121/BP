@@ -207,7 +207,12 @@ function signOut() {
 function deleteAccount(){
     inProgress.value = true;
     UserService.deleteUserAccount()
-    .then(()=>{
+    .then((result)=>{
+      if(result.status == 401){
+          store.error401 = true;
+          setTimeout( function() {store.$reset()}, 1500);
+          return;
+      }
       store.requestSuccess = true;
       store.successMessage = "Účet byl smazán."
       deleteAccPrompt.value = false;
@@ -215,12 +220,19 @@ function deleteAccount(){
         store.$reset();
         router.push("/auth");
       }, 10);
-    }).catch(()=>{store.requestFailed=true;});
+    }).catch(function(err){
+      store.requestFailed=true;
+      });
 }
 function resetAccount(){
     inProgress.value = true;
     UserService.resetUserAccount()
-    .then(()=>{
+    .then((result)=>{
+      if(result.status == 401){
+        store.error401 = true;
+        setTimeout( function() {store.$reset()}, 1500);
+        return;
+      }
       store.requestSuccess = true;
       store.successMessage = "Účet byl resetován. Aktivity budou znovu přepočítany."
       resetAccPrompt.value = false;
@@ -236,17 +248,25 @@ function resetAccount(){
         router.push("/");
         router.go(0);
       }, 300);
-    }).catch(()=>{store.requestFailed=true;});
+    }).catch(function (err){
+      store.request});
 }
 function loadNewActivities(){
   UserService.loadNewActsFromStrava().then(x=>{
+    if(x.status == 401){
+      store.error401 = true;
+      setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
+      return;
+    }
     store.successMessage = `Nalezeno ${x.data} nových aktivit`;
     store.requestSuccess = true;
     if(x.data > 0){
       store.stravaEmpty = false;
     }
     router.go(0);
-  }).catch(()=>{store.requestFailed=true;});
+  }).catch(function (err){
+      store.requestFailed=true;
+    });
 }
 watch(() => xs.value,newValue=>{
     leftBar.value = mdAndUp.value

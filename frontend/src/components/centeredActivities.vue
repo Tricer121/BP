@@ -84,6 +84,7 @@ import {useMainStore} from "@/store/mainstore";
 import ActivityProcessed from '@/models/activityProcessed';
 import RightMenu from '@/components/rightRouteMenu.vue';
 import LoadingComponent from '@/components/loading.vue';
+import router from "@/router";
 
 const store = useMainStore();
 const ready = ref(false);
@@ -143,7 +144,13 @@ function request(centered: Boolean){
     window.clearInterval(store.fullyLoadedRequestID)
     store.fullyLoadedRequestID = 0;
   }
+
   UserService.getCenteredActivites(centered).then(result=>{
+    if(result.status == 401){
+      store.error401 = true;
+      setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
+      return;
+    }
     if(result.status == 202){
       store.fullyLoaded = false;
       processedActivities.value = parseInt(result.data);
@@ -186,6 +193,7 @@ function request(centered: Boolean){
     ready.value = true;
     refresh();
 }).catch(function (err) {
+
     store.requestFailed = true;
     clearInterval(myInterval);
     myInterval = setInterval(function(){

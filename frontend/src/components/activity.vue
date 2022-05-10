@@ -70,7 +70,7 @@ import ActivityDetailed from "@/models/activityDetailed";
 import UserService from "@/services/UserService";
 import { ref, onBeforeMount } from "vue";
 import { useMainStore } from "@/store/mainstore";
-
+import router from "@/router";
 const mapContainer = ref(false);
 
 const store = useMainStore();
@@ -89,6 +89,11 @@ onBeforeMount(() => {
   if (props.id != undefined) {
     UserService.getActivity(props.id)
       .then((x) => {
+        if(x.status == 401){
+          store.error401 = true;
+          setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
+          return;
+        }
         activity.value = new ActivityDetailed(
           x.data.name,
           x.data.id,
@@ -107,7 +112,7 @@ onBeforeMount(() => {
         strokeColor.value = store.getColorById(props.id);
         mapContainer.value = true;
       })
-      .catch(function (err) {
+      .catch(function (err) { 
         store.requestFailed = true;
       });
   }

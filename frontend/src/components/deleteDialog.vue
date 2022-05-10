@@ -37,13 +37,20 @@ const emit = defineEmits(['close'])
 const inProgress = ref(false)
 function deleteById(){
     inProgress.value = true;
-    UserService.deleteActivityById(props.id).then(()=>{
+    UserService.deleteActivityById(props.id).then((result)=>{
+        if(result.status == 401){
+          store.error401 = true;
+          setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
+          return;
+        }
         store.successMessage = "Aktivita smazána";
         store.requestSuccess = true;
         emit('close');
         setTimeout(function(){
             router.go(0);
         }, 300);
-    });
+    }).catch(function (err){
+
+      store.requestFailed=true;});
 }
 </script>

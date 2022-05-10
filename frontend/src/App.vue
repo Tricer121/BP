@@ -1,16 +1,21 @@
 <template>
   <v-app fill-height>
     <v-snackbar
-      v-if="store.requestFailed == true"
+      v-if="errorHappened == true"
       multi-line
-      v-model="store.requestFailed"
-      :timeout="5000"
+      v-model="errorHappened"
+      :timeout="9000"
       tile
       color="red accent-2"
       top
       vertical
     >
+      <div v-if="store.requestFailed">
       Nastala chyba připojení při zpracování požadavku. <br> Opakuji za 10 vteřin.
+      </div>
+      <div v-else>
+      Nastala chyba přihlášení. <br> Je nutné se znovu přihlásit.
+      </div>
       <template v-slot:actions>
         <v-btn
           color="black"
@@ -48,7 +53,9 @@
 import { useMainStore } from "@/store/mainstore";
 const store = useMainStore();
 import UserService from '@/services/UserService.ts'
-import {watch} from 'vue';
+import {watch, computed} from 'vue';
+import router from "@/router";
+
 watch(()=>store.fullyLoaded, (newValue) => {
   if(newValue == false){
     isFullyLoadedRequest()
@@ -65,6 +72,11 @@ function isFullyLoadedRequest(){
       store.fullyLoaded = false;
       return;
     }
+    if(result.status == 401){
+      store.error401 = true;
+      setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
+      return;
+    }
     else{
       clearInterval(store.fullyLoadedRequestID);
       store.fullyLoaded = true;
@@ -74,8 +86,11 @@ function isFullyLoadedRequest(){
       }
     }
   })
-  .catch(_=>{})
+  .catch(function (err) {
+    store.requestFailed=true;
+  })
 }
+const errorHappened = computed(()=>{return store.error401 || store.requestFailed})
 </script>
 
 <style>

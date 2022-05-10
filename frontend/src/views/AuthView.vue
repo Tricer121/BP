@@ -31,7 +31,12 @@ if (error != undefined) {
   if(authFailed.value == false)
     UserService.register(code, scope)
       .then(() => {
-        UserService.loadNewActsFromStrava().then(()=>{
+        UserService.loadNewActsFromStrava().then((result)=>{
+          if(result.status == 401){
+            store.error401 = true;
+            setTimeout( function() {store.$reset(); router.push('/');router.go(0)}, 1500);
+            return;
+          }
           store.isLoggedIn = true;
           UserService.getLoggedInUser()
             .then((x) => {

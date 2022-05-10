@@ -115,4 +115,4 @@ app.MapPost("/user/loadnewactivities", UserRepository.LoadNewActivities)
 
 app.MapPost("/user/reset", UserRepository.ResetAccount)
     .RequireAuthorization();
-app.Run();
+app.Run("http://localhost:7040");

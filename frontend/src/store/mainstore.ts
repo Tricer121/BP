@@ -9,6 +9,7 @@ export const useMainStore = defineStore("mainStore", {
       isLoggedIn: false,
       requestFailed: false,
       requestSuccess: false,
+      error401: false,
       successMessage: "",
       errorMessage: "",
       userName: "",
