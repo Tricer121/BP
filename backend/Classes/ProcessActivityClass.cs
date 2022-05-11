@@ -322,7 +322,7 @@ public class ProcessActivityClass
     private bool AverageTwoRoutes(UserRoute routeA, UserRoute routeB)
     {
         var indexFirstRoute = 0;
-        var accuracy = 30;
+        var accuracy = 15;
         var usedIndexesInA = new List<int>();
         var usedIndexesInB = new List<int>();
         var influenced = false;
@@ -396,7 +396,7 @@ public class ProcessActivityClass
     private UserRoute AverageRoute(List<RouteCoordinate> route)
     {
         var indexFirstNode = 0;
-        var accuracy = 20;
+        var accuracy = 15;
         var usedIndexes = new List<int>();
         var routeCopy = route.Select(x => new RouteCoordinate(x.Latitude, x.Longitude, false)).ToList();
         while (indexFirstNode < routeCopy.Count)
