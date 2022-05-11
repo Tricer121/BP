@@ -259,7 +259,7 @@ public class UserRepository : BaseRepository
         var finishedAveragedFullyCount = user.Activities.Count(x => x.ActivityStatus is ActivityStatus.FullyAveraged or ActivityStatus.Finished);
         var normalAveraged = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Averaged);
         var onlyCentered = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Centered);
-        var recalculating = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Recalculate)*2;
+        var recalculating = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Recalculate);
         var toBeDeleted = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted);
         var count = finishedAveragedFullyCount*3+onlyCentered*2+recalculating*2+normalAveraged-toBeDeleted;
         var completePercent = Math.Truncate(((double)count) / (user.Activities.Count*3) * 100*100/100);

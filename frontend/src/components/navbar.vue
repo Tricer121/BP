@@ -239,6 +239,14 @@ function resetAccount(){
         window.clearInterval(store.fullyLoadedRequestID)
         store.fullyLoadedRequestID = 0;
       }
+      if(store.averagedRequest != 0){
+        window.clearInterval(store.averagedRequest)
+        store.averagedRequest = 0;
+      }
+      if(store.centeredRequest != 0){
+        window.clearInterval(store.centeredRequest)
+        store.centeredRequest = 0;
+      }
       store.fullyLoaded = false;
       setTimeout(function(){
         router.push("/");

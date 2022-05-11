@@ -322,7 +322,7 @@ public class ProcessActivityClass
     private bool AverageTwoRoutes(UserRoute routeA, UserRoute routeB)
     {
         var indexFirstRoute = 0;
-        var accuracy = 20;
+        var accuracy = 30;
         var usedIndexesInA = new List<int>();
         var usedIndexesInB = new List<int>();
         var influenced = false;
