@@ -254,14 +254,18 @@ public class UserRepository : BaseRepository
         var activityModel = new List<UserActivityProcessed>();
         if (user.Activities.Count(x=>x.ActivityStatus != ActivityStatus.ToBeDeleted) == 0)
             return Results.Ok(activityModel);
-        var averagedCount = user.Activities.Count(x => x.ActivityStatus is ActivityStatus.FullyAveraged or ActivityStatus.Finished);
-        var normalAveraged = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Averaged);
-        var centered = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Centered)*2;
         
+        var finishedCount = user.Activities.Count(x => x.ActivityStatus is ActivityStatus.Finished);
+        var finishedAveragedFullyCount = user.Activities.Count(x => x.ActivityStatus is ActivityStatus.FullyAveraged or ActivityStatus.Finished);
+        var normalAveraged = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Averaged);
+        var onlyCentered = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Centered);
+        var recalculating = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Recalculate)*2;
         var toBeDeleted = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted);
-        var count = averagedCount*3+centered*2+normalAveraged-toBeDeleted*3;
-        var completePercent = Convert.ToInt32(Math.Round((double)(count) / (user.Activities.Count+count), 2)*100);
-        if (averagedCount != user.Activities.Count-toBeDeleted) return Results.Accepted(null, $"{completePercent}");
+        var count = finishedAveragedFullyCount*3+onlyCentered*2+recalculating*2+normalAveraged-toBeDeleted;
+        var completePercent = Math.Truncate(((double)count) / (user.Activities.Count*3) * 100*100/100);
+        
+        string calculationResult = $"{completePercent:N2}";
+        if (finishedCount != user.Activities.Count-toBeDeleted) return Results.Accepted(null, $"{calculationResult}");
         foreach (var activity in user.Activities!)
         {
             if (activity.ActivityStatus == ActivityStatus.ToBeDeleted)
@@ -282,11 +286,15 @@ public class UserRepository : BaseRepository
         if (user.Activities.Count(x=>x.ActivityStatus != ActivityStatus.ToBeDeleted) == 0)
             return Results.Ok(activityModel);
         var centeredCount = user.Activities.Count(x => x.ActivityStatus >= ActivityStatus.Centered);
-        var justAveraged = user.Activities.Count(x => x.ActivityStatus >= ActivityStatus.Averaged); 
+        var normalAveraged = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Averaged);
+        var recalculating = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Recalculate);
         var toBeDeleted = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted);
-        var completePercent = Convert.ToInt32(Math.Round((double)(centeredCount+justAveraged-toBeDeleted) / (user.Activities.Count+justAveraged-toBeDeleted), 2) * 100);
-       
-        if (centeredCount != user.Activities.Count-toBeDeleted) return Results.Accepted(null, $"{completePercent}");
+        var count = centeredCount*2+recalculating*2+normalAveraged-toBeDeleted;
+        var completePercent = Math.Truncate(((double)count) / (user.Activities.Count*2) * 100*100/100);
+        string calculationResult = $"{completePercent:N2}";
+        
+        if (centeredCount+recalculating != user.Activities.Count-toBeDeleted) 
+            return Results.Accepted(null, $"{calculationResult}");
         var result = new List<List<List<double[]>>>();
         var regionIds = new List<long>();
         foreach (var activity in user.Activities!)

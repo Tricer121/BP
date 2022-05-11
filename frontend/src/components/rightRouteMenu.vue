@@ -154,7 +154,7 @@
         </v-card>
     </v-dialog>
     <v-dialog v-model="deleteDialog" >
-        <DeleteDialog :id="activeId" @close="deleteDialog = false"/>
+        <DeleteDialog :id="activeId" @close="close"/>
     </v-dialog>
     <v-dialog v-model="activityView">
         <ActivityVue :id="activeId" :map="false"/>
@@ -172,7 +172,7 @@ import router from '@/router';
 import DeleteDialog from '@/components/deleteDialog.vue';
 
 const store = useMainStore();
-const emit = defineEmits(['centerOnId','mapRefresh', 'reload'])
+const emit = defineEmits(['centerOnId','mapRefresh', 'reload','activityDeleted'])
 
 const props = defineProps({
   activities: Array,
@@ -207,6 +207,10 @@ function colorPickToggle(id:number){
 function deletePrompt(id:number){
     deleteDialog.value = true;
     activeId.value = id;
+}
+function close(){
+    deleteDialog.value = false;
+    emit('activityDeleted');
 }
 function viewDetail(id:number){
     activeId.value = id;

@@ -40,10 +40,8 @@ function deleteById(){
     UserService.deleteActivityById(props.id).then((result)=>{
         store.successMessage = "Aktivita smazána";
         store.requestSuccess = true;
+        store.fullyLoaded = false;
         emit('close');
-        setTimeout(function(){
-            router.go(0);
-        }, 5000);
     }).catch(function (err){
       if(err.response)
         if(err.response.status == 401){

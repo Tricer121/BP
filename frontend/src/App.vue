@@ -61,10 +61,10 @@ watch(() => store.requestFailed.value,(newValue,oldValue)=>{
     }
 })
 watch(()=>store.fullyLoaded, (newValue) => {
-  if(newValue == false){    
+  setTimeout( function() {
     isFullyLoadedRequest()
     store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
-  }
+  }, 500);
 })
 watch(()=>store.isLoggedIn, (newValue) => {
   if(newValue == true){    
@@ -83,10 +83,9 @@ function isFullyLoadedRequest(){
     if(result.data == true){
       clearInterval(store.fullyLoadedRequestID);
       store.fullyLoaded = true;
-      if(result.data.routes.length == 0){
-          store.stravaEmpty = true;
-          return;
-      }
+    }
+    else{
+      store.fullyLoaded = false
     }
   })
   .catch(_=>{})

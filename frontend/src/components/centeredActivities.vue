@@ -6,7 +6,7 @@
     </v-col>
     <v-col cols="0" md="1"  class="d-flex justify-end">
       <div v-if="ready == true && store.stravaEmpty == false" >
-        <RightMenu @mapRefresh="refresh()" @centerOnId="centerOnId" @reload="reload" :region="true" :activities="activities" />
+        <RightMenu @mapRefresh="refresh()" @centerOnId="centerOnId" @reload="reload" :region="true" :activities="activities"  @activityDeleted="activityDeleted"/>
       </div>
     </v-col>
   </v-row>
@@ -104,7 +104,7 @@ const regions = ref<[][]>([]);
 const coordinateHighlight = ref(false);
 const mapView = ref(null)
 const refreshNow = ref(true); 
-
+const centeredSwitch = ref(false);
 function centerOnId(id:number){
   const activity = activities.value.find(x=>x.id == id);
   if(activity.rawRoute.coordinates.length == 1)
@@ -116,9 +116,10 @@ function centerOnId(id:number){
   }
   zoom.value = store.mapZoom
 }
-if(store.centeredRequest == 0)
+if(store.centeredRequest == 0){
   request(false);
-store.centeredRequest = window.setInterval(function(){request(false)}, 5000);
+  store.centeredRequest = window.setInterval(function(){request(false)}, 5000);
+}
 
 function refresh(){
   refreshNow.value = false;
@@ -132,8 +133,10 @@ function reload(centered:boolean | undefined, coordinates:boolean){
   if(coordinateHighlight.value != coordinates)
     coordinateHighlight.value = coordinates;
   else
-    if(centered != undefined)
+    if(centered != undefined){
+      centeredSwitch.value = centered;
       request(centered)
+    }
     else
       request(false)
 }
@@ -143,8 +146,10 @@ function reload(centered:boolean | undefined, coordinates:boolean){
     '#03ffc0','#03fffb','#0346ff',
     '#8103ff','#c803ff','#ff03dd','#ff0374'];
 
-if(store.averagedRequest !=0)
+if(store.averagedRequest !=0){
   window.clearInterval(store.averagedRequest);
+  store.averagedRequest = 0;
+}
 function request(centered: Boolean){ 
   UserService.getCenteredActivites(centered).then(result=>{
     if(result.status == 202){
@@ -212,6 +217,11 @@ function centerChanged(changed:[]){
   store.mapCenter = changed;
 }
 
+function activityDeleted(){
+  ready.value = false;
+  store.fullyLoaded = false;
+  store.centeredRequest = window.setInterval(function(){request(centeredSwitch.value)}, 3000);
+}
 </script>
 
 <style scoped>

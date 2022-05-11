@@ -73,7 +73,7 @@
       </v-col>
     </v-row>
     <v-dialog v-model="deleteDialog" >
-        <DeleteDialog :id="activeId" @close="deleteDialog = false"/>
+        <DeleteDialog :id="activeId" @close="deletedActivity"/>
     </v-dialog>
   </v-container>
 </template>
@@ -175,7 +175,12 @@ function request(){ UserService.getActivities(activityPerPage.value)
     }, 10000);
   });
 }
-
+function deletedActivity(){
+  setTimeout(function() {
+    deleteDialog.value = false;
+    router.go(0)
+  }, 1000);
+}
 function deleteDialogFc(id:number){
   activeId.value = id;
   deleteDialog.value = true;

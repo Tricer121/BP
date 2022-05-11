@@ -77,12 +77,14 @@ public class ProcessActivityClass
                         dbContext.UserRoutes.RemoveRange(helpRoutes);
                         dbContext.RouteCoordinates.RemoveRange(helpRouteCordsToRemove);
                         await dbContext.SaveChangesAsync();
+                        if (activityHelp.ActivityStatus == ActivityStatus.ToBeDeleted)
+                            continue;
                         activityHelp.AveragedRoute = AverageRoute(activityHelp.RawRoute!.RouteCoordinates);
                         activityHelp.ActivityStatus = ActivityStatus.Averaged;
                         await dbContext.SaveChangesAsync();
                         AverageAllRoutes(user, activityHelp);
                         if (activityHelp.ActivityStatus == ActivityStatus.ToBeDeleted)
-                            return;
+                            continue;
                         activityHelp.ActivityStatus = ActivityStatus.Finished;
                         await dbContext.SaveChangesAsync();
                     }
@@ -394,7 +396,7 @@ public class ProcessActivityClass
     private UserRoute AverageRoute(List<RouteCoordinate> route)
     {
         var indexFirstNode = 0;
-        var accuracy = 15;
+        var accuracy = 20;
         var usedIndexes = new List<int>();
         var routeCopy = route.Select(x => new RouteCoordinate(x.Latitude, x.Longitude, false)).ToList();
         while (indexFirstNode < routeCopy.Count)

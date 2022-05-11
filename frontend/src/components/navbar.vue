@@ -40,7 +40,7 @@
             color="deep-orange"
             class="btnmargin"
             icon
-            
+            :disabled="!store.fullyLoaded"
             @click="loadNewActivities()"
           >
             <v-icon>mdi-download-circle</v-icon>
@@ -152,7 +152,7 @@
           <v-container v-else>
             <v-row>
               <v-col class="d-flex justify-center">
-                <v-btn id="deleteAcc" class="ma-2" color="error" @click="resetAccount()">
+                <v-btn id="deleteAcc" class="ma-2" color="error" :disabled="!store.fullyLoaded" @click="resetAccount()">
                     Resetovat účet
                 </v-btn>
               </v-col>
@@ -235,7 +235,6 @@ function resetAccount(){
       resetAccPrompt.value = false;
       store.stravaEmpty = false;
       inProgress.value = false;
-      console.log(store.fullyLoadedRequestID)
       if(store.fullyLoadedRequestID != 0){
         window.clearInterval(store.fullyLoadedRequestID)
         store.fullyLoadedRequestID = 0;

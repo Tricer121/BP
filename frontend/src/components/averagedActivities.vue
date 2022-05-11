@@ -6,7 +6,7 @@
     </v-col>
     <v-col cols="0" md="1" class="d-flex justify-end">
       <div v-if="ready == true && store.stravaEmpty == false" >
-        <RightMenu @mapRefresh="refresh()" @centerOnId="centerOnId" @reload="reload" :activities="activities" />
+        <RightMenu @mapRefresh="refresh()" @centerOnId="centerOnId" @reload="reload" :activities="activities" @activityDeleted="activityDeleted"/>
       </div>
     </v-col>
   </v-row>
@@ -88,11 +88,14 @@ const processedActivities = ref(0);
 const refreshNow = ref(true); 
 
 const activities = ref<ActivityProcessed[]>([]);
-if(store.averagedRequest == 0)
+if(store.averagedRequest == 0){
   request();
-store.averagedRequest = window.setInterval(request, 5000);
-if(store.centeredRequest !=0)
+  store.averagedRequest = window.setInterval(request, 5000);
+}
+if(store.centeredRequest !=0){
   window.clearInterval(store.centeredRequest);
+  store.centeredRequest = 0;
+}
 function request(){ 
   UserService.getAveragedActivites().then(result=>{
     if(result.status == 202){
@@ -177,6 +180,11 @@ function zoomChanged(changed: number){
 }
 function centerChanged(changed:[]){
   store.mapCenter = changed;
+}
+function activityDeleted(){
+  ready.value = false;
+  store.fullyLoaded = false;
+  store.averagedRequest = window.setInterval(function(){request()}, 3000);
 }
 </script>
 <style scoped>
