@@ -117,8 +117,7 @@ function centerOnId(id:number){
   zoom.value = store.mapZoom
 }
 if(store.centeredRequest == 0){
-  request(false);
-  store.centeredRequest = window.setInterval(function(){request(false)}, 5000);
+  request(centeredSwitch.value);
 }
 
 function refresh(){
@@ -147,7 +146,7 @@ function reload(centered:boolean | undefined, coordinates:boolean){
     '#8103ff','#c803ff','#ff03dd','#ff0374'];
 
 if(store.averagedRequest !=0){
-  window.clearInterval(store.averagedRequest);
+  window.clearTimeout(store.averagedRequest);
   store.averagedRequest = 0;
 }
 function request(centered: Boolean){ 
@@ -155,10 +154,13 @@ function request(centered: Boolean){
     if(result.status == 202){
       store.fullyLoaded = false;
       processedActivities.value = parseInt(result.data);
+      store.centeredRequest = setTimeout( function() {
+            request(centeredSwitch.value);
+        }, 5000);
       return;
     }
     activities.value = []
-    window.clearInterval(store.centeredRequest);
+    window.clearTimeout(store.centeredRequest);
     store.centeredRequest = 0;
     if(result.data.length == 0){
         store.stravaEmpty = true;
@@ -220,7 +222,7 @@ function centerChanged(changed:[]){
 function activityDeleted(){
   ready.value = false;
   store.fullyLoaded = false;
-  store.centeredRequest = window.setInterval(function(){request(centeredSwitch.value)}, 3000);
+  store.centeredRequest = window.setTimeout(function(){request(centeredSwitch.value)}, 10000);
 }
 </script>
 

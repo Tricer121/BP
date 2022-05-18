@@ -79,7 +79,7 @@ const store = useMainStore();
 const ready = ref(false);
 const coordinateHighlight = ref(false);
 const strokeColor = ref("#ff5733");
-const strokeWidth = ref(3);
+const strokeWidth = ref(4);
 const projection = ref("EPSG:4326");
 const zoom = ref(15);
 const center = ref([0,0]);
@@ -88,12 +88,11 @@ const processedActivities = ref(0);
 const refreshNow = ref(true); 
 
 const activities = ref<ActivityProcessed[]>([]);
-if(store.averagedRequest == 0){
-  request();
-  store.averagedRequest = window.setInterval(request, 5000);
-}
+
+request();
+
 if(store.centeredRequest !=0){
-  window.clearInterval(store.centeredRequest);
+  window.clearTimeout(store.centeredRequest);
   store.centeredRequest = 0;
 }
 function request(){ 
@@ -101,10 +100,13 @@ function request(){
     if(result.status == 202){
       processedActivities.value = parseInt(result.data);
       store.fullyLoaded = false;
+      store.averagedRequest = setTimeout( function() {
+            request()
+        }, 5000);
       return;
     }
     activities.value = []
-    clearInterval(store.averagedRequest);
+    clearTimeout(store.averagedRequest);
     store.averagedRequest = 0;
     if(result.data.length == 0){
         store.stravaEmpty = true;
@@ -184,7 +186,7 @@ function centerChanged(changed:[]){
 function activityDeleted(){
   ready.value = false;
   store.fullyLoaded = false;
-  store.averagedRequest = window.setInterval(function(){request()}, 3000);
+  store.averagedRequest = window.setTimeout(function(){request()}, 10000);
 }
 </script>
 <style scoped>

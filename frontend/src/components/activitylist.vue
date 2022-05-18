@@ -150,8 +150,9 @@ function request(){ UserService.getActivities(activityPerPage.value)
     activities.value.forEach(
       x=>x.forEach(
         function (y,index){
-          if(!store.colorExists(y.id))
-            store.addColor({id:y.id,color:colorArray[index%colorArray.length]})
+          if(!store.colorExists(y.id)){
+            store.addColor({id:y.id,color:colorArray[Math.floor(Math.random()*colorArray.length)]})
+          }
         }
     ));
     ready.value = true;

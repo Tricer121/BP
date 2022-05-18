@@ -34,8 +34,14 @@ public class UserRepository : BaseRepository
         var user = await AuthRepository.GetUserRefreshTokens(dbContext, httpClient, context, config);
         if (user is null)
             return Results.NotFound();
-
+        var activities = user.Activities;
+        foreach (var activity in activities)
+            activity.ActivityStatus = ActivityStatus.ToBeDeleted;
+        await dbContext.SaveChangesAsync();
         await LoadActivities(dbContext, httpClient, context, config, backgroundJobs, serviceProvider,recurringJobManager);
+        foreach(var activityId in activities.Where(x=>x.ActivityStatus == ActivityStatus.ToBeDeleted).Select(x=>x.Id))
+            backgroundJobs.Enqueue(() => new ProcessActivityClass(serviceProvider, config).RunDeleteActivity(activityId,true));
+        
         user.LastUpdated = DateTime.Now;
         return Results.Ok();
     }
@@ -262,7 +268,7 @@ public class UserRepository : BaseRepository
         var recalculating = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Recalculate);
         var toBeDeleted = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted);
         var count = finishedAveragedFullyCount*3+onlyCentered*2+recalculating*2+normalAveraged-toBeDeleted;
-        var completePercent = Math.Truncate(((double)count) / (user.Activities.Count*3) * 100*100/100);
+        var completePercent = Math.Truncate(((double)count) / ((user.Activities.Count-toBeDeleted)*3) * 100*100/100);
         
         string calculationResult = $"{completePercent:N2}";
         if (finishedCount != user.Activities.Count-toBeDeleted) return Results.Accepted(null, $"{calculationResult}");
@@ -290,7 +296,7 @@ public class UserRepository : BaseRepository
         var recalculating = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.Recalculate);
         var toBeDeleted = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted);
         var count = centeredCount*2+recalculating*2+normalAveraged-toBeDeleted;
-        var completePercent = Math.Truncate(((double)count) / (user.Activities.Count*2) * 100*100/100);
+        var completePercent = Math.Truncate(((double)count) / ((user.Activities.Count-toBeDeleted)*2) * 100*100/100);
         string calculationResult = $"{completePercent:N2}";
         
         if (centeredCount+recalculating != user.Activities.Count-toBeDeleted) 

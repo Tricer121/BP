@@ -61,32 +61,33 @@ watch(() => store.requestFailed.value,(newValue,oldValue)=>{
     }
 })
 watch(()=>store.fullyLoaded, (newValue) => {
-  setTimeout( function() {
-    isFullyLoadedRequest()
-    store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
-  }, 500);
-})
-watch(()=>store.isLoggedIn, (newValue) => {
-  if(newValue == true){    
-    setTimeout( function() {
+  clearTimeout(store.fullyLoadedRequestID);
+  store.fullyLoadedRequestID = setTimeout( function() {
       isFullyLoadedRequest()
-      store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
+    }, 12000);
+})
+watch(()=>store.isLoggedIn, (newValue,oldValue) => {
+  if(newValue == true){  
+    store.fullyLoadedRequestID = setTimeout( function() {
+      isFullyLoadedRequest()
     }, 3000);
   }
 })
 if(!store.fullyLoaded && store.isLoggedIn){
-    isFullyLoadedRequest()
-    store.fullyLoadedRequestID = window.setInterval(isFullyLoadedRequest, 10000);
+    store.fullyLoadedRequestID = window.setTimeout(isFullyLoadedRequest, 10000);
 }
 function isFullyLoadedRequest(){
   UserService.isLoaded().then(result=>{
     if(result.data == true){
-      clearInterval(store.fullyLoadedRequestID);
+      clearTimeout(store.fullyLoadedRequestID);
+      store.fullyLoadedRequestID = 0;
       store.fullyLoaded = true;
     }
     else{
       store.fullyLoaded = false
+      store.fullyLoadedRequestID = window.setTimeout(isFullyLoadedRequest,10000)
     }
+    
   })
   .catch(_=>{})
 }

@@ -33,3 +33,5 @@
 /backend//packages/
 /backend/riderModule.iml
 /backend//_ReSharper.Caches/
+backend/Migrations/20220506172454_initMigration.cs
+backend/Migrations/20220506172454_initMigration.Designer.cs

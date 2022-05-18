@@ -5,6 +5,7 @@ using backend.Models;
 using Backend.Models;
 using Castle.Core.Internal;
 using Hangfire;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
@@ -22,7 +23,6 @@ public class ProcessActivityClass
         _configuration = configuration;
     }
     
-    [AutomaticRetry(Attempts = 0)]
     public async Task RunDeleteActivity(long id, bool fullDelete)
     {
         using (var scope = _serviceProvider.CreateScope())
@@ -53,17 +53,7 @@ public class ProcessActivityClass
                         
                     }
                     await dbContext.SaveChangesAsync();
-                    var routes = new List<UserRoute> { activity.RawRoute!, activity.CenteredRoute!, activity.AveragedRoute! };
-                    var routeCordsToRemove = new List<RouteCoordinate>();
-                    routeCordsToRemove.AddRange(activity.RawRoute!.RouteCoordinates);
-                    routeCordsToRemove.AddRange(activity.AveragedRoute!.RouteCoordinates);
-                    routeCordsToRemove.AddRange(activity.CenteredRoute!.RouteCoordinates);
-
-                    dbContext.UserActivities.Remove(activity);
-                    dbContext.UserRoutes.RemoveRange(routes);
-                    dbContext.RouteCoordinates.RemoveRange(routeCordsToRemove);
-            
-                    await dbContext.SaveChangesAsync();
+                    
 
                     foreach (var activityHelpId in activityGroup.ActivityIds)
                     {
@@ -82,7 +72,7 @@ public class ProcessActivityClass
                         activityHelp.AveragedRoute = AverageRoute(activityHelp.RawRoute!.RouteCoordinates);
                         activityHelp.ActivityStatus = ActivityStatus.Averaged;
                         await dbContext.SaveChangesAsync();
-                        AverageAllRoutes(user, activityHelp);
+                        AverageAllRoutes(dbContext,user, activityHelp);
                         if (activityHelp.ActivityStatus == ActivityStatus.ToBeDeleted)
                             continue;
                         activityHelp.ActivityStatus = ActivityStatus.Finished;
@@ -90,10 +80,20 @@ public class ProcessActivityClass
                     }
                 }
             }
+            var routes = new List<UserRoute> { activity.RawRoute!, activity.CenteredRoute!, activity.AveragedRoute! };
+            var routeCordsToRemove = new List<RouteCoordinate>();
+            routeCordsToRemove.AddRange(activity.RawRoute!.RouteCoordinates);
+            routeCordsToRemove.AddRange(activity.AveragedRoute!.RouteCoordinates);
+            routeCordsToRemove.AddRange(activity.CenteredRoute!.RouteCoordinates);
+
+            dbContext.UserActivities.Remove(activity);
+            dbContext.RouteCoordinates.RemoveRange(routeCordsToRemove);
+            dbContext.UserRoutes.RemoveRange(routes);
+
+            await dbContext.SaveChangesAsync();
         }
     }
-
-    [AutomaticRetry(Attempts = 0)]
+    
     public async Task RunDeleteUser(long id)
     {
         using (var scope = _serviceProvider.CreateScope())
@@ -111,7 +111,7 @@ public class ProcessActivityClass
             await dbContext.SaveChangesAsync();
         }
     }
-
+    [DisableConcurrentExecution(timeoutInSeconds: 10 * 60)]
     public async Task RunAveragingAll(long userId)
     {
         using (var scope = _serviceProvider.CreateScope())
@@ -120,22 +120,26 @@ public class ProcessActivityClass
             var user = dbContext.Users.FirstOrDefault(x => x.Id == userId);
             if (user is null)
                 return;
+            var finished = user.Activities.Count(x => x.ActivityStatus is ActivityStatus.Finished);
             var onlyAveraged = user.Activities.Count(x => x.ActivityStatus is ActivityStatus.Centered or ActivityStatus.Finished);
             var toBeDeleted = user.Activities.Count(x => x.ActivityStatus == ActivityStatus.ToBeDeleted);
-            if (onlyAveraged + toBeDeleted == user.Activities.Count)
-            {
-                foreach (var activity in user.Activities)
+            if(finished != user.Activities.Count)
+                if (onlyAveraged + toBeDeleted == user.Activities.Count)
                 {
-                    if (activity.ActivityStatus is ActivityStatus.Finished or ActivityStatus.FullyAveraged or ActivityStatus.ToBeDeleted)
-                        continue;
-                    AverageAllRoutes(user, activity);
-                    if (activity.ActivityStatus == ActivityStatus.ToBeDeleted)
-                        return;
-                    if ( activity.ActivityStatus == ActivityStatus.Centered)
-                        activity.ActivityStatus = ActivityStatus.Finished;
-                    await dbContext.SaveChangesAsync();
+                    foreach (var activityId in user.Activities.Select(x=>x.Id))
+                    {
+                        var activity = dbContext.UserActivities.FirstOrDefault(x => x.Id == activityId);
+                        if (activity!.ActivityStatus is ActivityStatus.ToBeDeleted)
+                            continue;
+                        AverageAllRoutes(dbContext, user, activity);
+                        AverageAllRoutes(dbContext, user, activity);
+                        if (activity.ActivityStatus == ActivityStatus.ToBeDeleted)
+                            continue;
+                        if ( activity.ActivityStatus == ActivityStatus.Centered)
+                            activity.ActivityStatus = ActivityStatus.Finished;
+                        await dbContext.SaveChangesAsync();
+                    }
                 }
-            }
         }
     }
 
@@ -260,10 +264,13 @@ public class ProcessActivityClass
         }
     }
 
-    private void AverageAllRoutes(User user, UserActivity activityToAverage)
+    private void AverageAllRoutes(AppDbContext dbContext,User user, UserActivity activityToAverage)
     {
-        foreach (var activity in user.Activities)
+        foreach (var activityId in user.Activities.Select(x=>x.Id))
         {
+            var activity = dbContext.UserActivities.FirstOrDefault(x => x.Id == activityId);
+            if (activity is null)
+                continue;
             if (activity.ActivityStatus == ActivityStatus.ToBeDeleted || activity.Id == activityToAverage.Id)
                 continue;
             var closeBy1 =
@@ -272,8 +279,8 @@ public class ProcessActivityClass
                 user.ActivitiesCloseBy.FirstOrDefault(x =>
                     x.ActivityIds.Exists(x => x.ActivityId == activityToAverage.Id));
             bool influenced = false;
-            if (activity.ActivityStatus >= ActivityStatus.Averaged)
-                influenced = AverageTwoRoutes(activity.AveragedRoute!, activityToAverage.AveragedRoute!);
+            if (activity.ActivityStatus is >= ActivityStatus.Averaged or ActivityStatus.Recalculate) 
+                influenced = AverageTwoRoutes(dbContext, activity.Id!, activityToAverage.Id!);
             if (influenced)
             {
                 if (closeBy1 is null)
@@ -316,73 +323,79 @@ public class ProcessActivityClass
                 if (closeBy2 is null)
                     user.ActivitiesCloseBy.Add(new UserActivitiesCloseBy(new List<long> { activityToAverage.Id }));
             }
+
+            dbContext.SaveChanges();
         }
     }
 
-    private bool AverageTwoRoutes(UserRoute routeA, UserRoute routeB)
+    private bool AverageTwoRoutes(AppDbContext dbContext,long activityAId, long activityBId)
     {
+        UserActivity activityA = dbContext.UserActivities.FirstOrDefault(x => x.Id == activityAId)!;
+        UserActivity activityB = dbContext.UserActivities.FirstOrDefault(x => x.Id == activityBId)!;
+        List<RouteCoordinate> routeA = activityA.AveragedRoute!.RouteCoordinates;
+        List<RouteCoordinate> routeB = activityB.AveragedRoute!.RouteCoordinates;
         var indexFirstRoute = 0;
         var accuracy = 15;
         var usedIndexesInA = new List<int>();
         var usedIndexesInB = new List<int>();
         var influenced = false;
-        while (indexFirstRoute < routeA.RouteCoordinates.Count)
+        while (indexFirstRoute < routeA.Count)
         {
             var usedIndexesInNodeInB = new List<int>();
             var listSameLat = new List<double>();
             var listSameLon = new List<double>();
             var indexSecondRoute = 0;
-            while (indexSecondRoute < routeB.RouteCoordinates.Count)
+            while (indexSecondRoute < routeB.Count)
             {
                 if (usedIndexesInA.Contains(indexFirstRoute))
                     break;
                 if (!usedIndexesInB.Contains(indexSecondRoute))
                 {
                     var distance =
-                        routeA.RouteCoordinates[indexFirstRoute]!.GetDistanceTo(
-                            routeB.RouteCoordinates[indexSecondRoute]);
+                        routeA[indexFirstRoute]!.GetDistanceTo(
+                            routeB[indexSecondRoute]);
                     if (distance <= accuracy)
                     {
                         influenced = true;
-                        listSameLat.Add(routeB.RouteCoordinates[indexSecondRoute]!.Latitude);
-                        listSameLon.Add(routeB.RouteCoordinates[indexSecondRoute]!.Longitude);
+                        listSameLat.Add(routeB[indexSecondRoute]!.Latitude);
+                        listSameLon.Add(routeB[indexSecondRoute]!.Longitude);
                         usedIndexesInB.Add(indexSecondRoute);
-                        usedIndexesInB.AddRange(routeB.RouteCoordinates[indexSecondRoute]
+                        usedIndexesInB.AddRange(routeB[indexSecondRoute]
                             .CoordinateIndexes.Select(x => x.Index));
                         usedIndexesInNodeInB.Add(indexSecondRoute);
                     }
                 }
 
-                if (indexSecondRoute == routeB.RouteCoordinates.Count - 1)
+                if (indexSecondRoute == routeB.Count - 1)
                 {
-                    listSameLat.Add(routeA.RouteCoordinates[indexFirstRoute]!.Latitude);
-                    listSameLon.Add(routeA.RouteCoordinates[indexFirstRoute]!.Longitude);
+                    listSameLat.Add(routeA[indexFirstRoute]!.Latitude);
+                    listSameLon.Add(routeA[indexFirstRoute]!.Longitude);
                     var coord = new RouteCoordinate(listSameLat.Average(), listSameLon.Average(), false);
-                    var coords = routeA.RouteCoordinates[indexFirstRoute];
+                    var coords = routeA[indexFirstRoute];
                     if (coords is null)
                         continue;
-                    routeA.RouteCoordinates[indexFirstRoute]!.Latitude = coord.Latitude;
-                    routeA.RouteCoordinates[indexFirstRoute]!.Longitude = coord.Longitude;
+                    routeA[indexFirstRoute]!.Latitude = coord.Latitude;
+                    routeA[indexFirstRoute]!.Longitude = coord.Longitude;
                     foreach (var coordinate in coords.CoordinateIndexes)
                     {
-                        routeA.RouteCoordinates[coordinate.Index]!.Latitude = coord.Latitude;
-                        routeA.RouteCoordinates[coordinate.Index]!.Longitude = coord.Longitude;
+                        routeA[coordinate.Index]!.Latitude = coord.Latitude;
+                        routeA[coordinate.Index]!.Longitude = coord.Longitude;
                     }
 
                     foreach (var node in usedIndexesInNodeInB)
                     {
-                        routeB.RouteCoordinates[node]!.Latitude = coord.Latitude;
-                        routeB.RouteCoordinates[node]!.Longitude = coord.Longitude;
-                        foreach (var coordinate in routeB.RouteCoordinates[node].CoordinateIndexes)
+                        routeB[node]!.Latitude = coord.Latitude;
+                        routeB[node]!.Longitude = coord.Longitude;
+                        foreach (var coordinate in routeB[node].CoordinateIndexes)
                         {
-                            routeB.RouteCoordinates[coordinate.Index]!.Latitude = coord.Latitude;
-                            routeB.RouteCoordinates[coordinate.Index]!.Longitude = coord.Longitude;
+                            routeB[coordinate.Index]!.Latitude = coord.Latitude;
+                            routeB[coordinate.Index]!.Longitude = coord.Longitude;
                         }
                     }
 
                     usedIndexesInA.Add(indexFirstRoute);
                     usedIndexesInA.AddRange(
-                        routeA.RouteCoordinates[indexFirstRoute]!.CoordinateIndexes
+                        routeA[indexFirstRoute]!.CoordinateIndexes
                             .Select(x => x.Index));
                 }
 
@@ -390,6 +403,8 @@ public class ProcessActivityClass
             }
             indexFirstRoute++;
         }
+
+        dbContext.SaveChanges();
         return influenced;
     }
 
